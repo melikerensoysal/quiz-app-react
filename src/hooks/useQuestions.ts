@@ -8,7 +8,5 @@ export const useQuestions = (categoryId: number | null) => {
     queryKey: [QUERY_KEYS.QUESTIONS, categoryId],
     queryFn: () => fetchQuestions(categoryId!),
     enabled: !!categoryId,
-    staleTime: 0,
-    gcTime: 1000 * 60 * 5,
   });
 };
