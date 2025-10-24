@@ -1,12 +1,18 @@
 import { Routes, Route } from "react-router-dom";
 import HomePage from "./pages/HomePage/HomePage";
+import QuizPage from "./pages/QuizPage/QuizPage";
+import ResultPage from "./pages/ResultPage/ResultPage";
 
 function App() {
   return (
     <div className="app-container">
       <Routes>
         <Route path="/" element={<HomePage />} />
-        {/* <Route path="/quiz/:categoryId" element={<QuizPage />} /> */}
+
+        {/* Bu rotayı aktif hale getiriyoruz */}
+        <Route path="/quiz/:categoryId" element={<QuizPage />} />
+
+        {/* ResultPage rotasını daha sonra ekleyeceğiz */}
         {/* <Route path="/result" element={<ResultPage />} /> */}
       </Routes>
     </div>
