@@ -1,17 +1,19 @@
 import { useState, useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuestions } from "../../hooks/useQuestions";
 import LoadingSpinner from "../../components/LoadingSpinner/LoadingSpinner";
 import styles from "./QuizPage.module.scss";
 
 const QuizPage = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
+  const navigate = useNavigate();
   const numericCategoryId = categoryId ? Number(categoryId) : null;
 
   const { data: questions, isLoading, isError, error } = useQuestions(numericCategoryId);
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
+  const [changeCounts, setChangeCounts] = useState<Record<number, number>>({});
 
   const shuffledAnswers = useMemo(() => {
     if (!questions) return [];
@@ -21,9 +23,20 @@ const QuizPage = () => {
   }, [questions]);
 
   const handleAnswerSelect = (answer: string) => {
+    const currentChanges = changeCounts[currentQuestionIndex] || 0;
+    if (currentChanges >= 2) {
+      alert("Bu soru için cevap değiştirme hakkınız doldu!");
+      return;
+    }
+
     setUserAnswers((prev) => ({
       ...prev,
       [currentQuestionIndex]: answer,
+    }));
+
+    setChangeCounts((prev) => ({
+      ...prev,
+      [currentQuestionIndex]: currentChanges + 1,
     }));
   };
 
@@ -38,7 +51,18 @@ const QuizPage = () => {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
     }
   };
-  
+
+  const handleFinishTest = () => {
+    if (!questions) return;
+
+    navigate("/result", {
+      state: {
+        questions,
+        userAnswers,
+      },
+    });
+  };
+
   if (isLoading) {
     return <LoadingSpinner text="Sorular yükleniyor..." />;
   }
@@ -50,6 +74,8 @@ const QuizPage = () => {
   const currentQuestion = questions[currentQuestionIndex];
   const currentShuffledAnswers = shuffledAnswers[currentQuestionIndex];
   const selectedAnswer = userAnswers[currentQuestionIndex];
+  const isAnswerLocked = (changeCounts[currentQuestionIndex] || 0) >= 2;
+  const allQuestionsAnswered = Object.keys(userAnswers).length === questions.length;
 
   return (
     <div className={styles.quizContainer}>
@@ -66,11 +92,13 @@ const QuizPage = () => {
               key={answer}
               className={`${styles.answerButton} ${selectedAnswer === answer ? styles.selected : ""}`}
               onClick={() => handleAnswerSelect(answer)}
+              disabled={isAnswerLocked}
             >
               {answer}
             </button>
           ))}
         </div>
+        {isAnswerLocked && <p className={styles.lockedMessage}>Bu soru için cevap hakkınız doldu.</p>}
       </div>
 
       <div className={styles.navigationButtons}>
@@ -78,9 +106,14 @@ const QuizPage = () => {
         <button onClick={handleNext} disabled={currentQuestionIndex === questions.length - 1}>İleri</button>
       </div>
       
-      {/**/}
       <div className={styles.finishButtonContainer}>
-        <button className={styles.finishButton}>Testi Bitir</button>
+        <button 
+          className={styles.finishButton}
+          onClick={handleFinishTest}
+          disabled={!allQuestionsAnswered}
+        >
+          Testi Bitir
+        </button>
       </div>
     </div>
   );
