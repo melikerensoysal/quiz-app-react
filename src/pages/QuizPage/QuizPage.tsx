@@ -1,21 +1,39 @@
-import { useState, useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useQuestions } from "../../hooks/useQuestions";
 import LoadingSpinner from "../../components/LoadingSpinner/LoadingSpinner";
 import styles from "./QuizPage.module.scss";
 import { PATHS } from "../../constants/paths";
+import type { Question } from "../../types"; // HATA BU SATIRDA DÜZELTİLDİ
 
 const QuizPage = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const numericCategoryId = categoryId ? Number(categoryId) : null;
 
+  const [localQuestions, setLocalQuestions] = useState<Question[] | null>(null);
+
   const {
-    data: questions,
+    data: questionsFromApi,
     isLoading,
     isError,
     error,
-  } = useQuestions(numericCategoryId);
+  } = useQuestions(
+    localQuestions ? null : numericCategoryId
+  );
+  
+  const questions = localQuestions || questionsFromApi;
+
+  useEffect(() => {
+    if (location.state?.questions) {
+      setLocalQuestions(location.state.questions);
+      // "Aynı testi çöz" dendiğinde state'leri sıfırla
+      setCurrentQuestionIndex(0);
+      setUserAnswers({});
+      setChangeCounts({});
+    }
+  }, [location.state]);
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
@@ -29,23 +47,15 @@ const QuizPage = () => {
       )
     );
   }, [questions]);
-
+  
   const handleAnswerSelect = (answer: string) => {
     const currentChanges = changeCounts[currentQuestionIndex] || 0;
     if (currentChanges >= 2) {
       alert("Bu soru için cevap değiştirme hakkınız doldu!");
       return;
     }
-
-    setUserAnswers((prev) => ({
-      ...prev,
-      [currentQuestionIndex]: answer,
-    }));
-
-    setChangeCounts((prev) => ({
-      ...prev,
-      [currentQuestionIndex]: currentChanges + 1,
-    }));
+    setUserAnswers((prev) => ({ ...prev, [currentQuestionIndex]: answer }));
+    setChangeCounts((prev) => ({ ...prev, [currentQuestionIndex]: currentChanges + 1 }));
   };
 
   const handleNext = () => {
@@ -66,6 +76,7 @@ const QuizPage = () => {
       state: {
         questions,
         userAnswers,
+        categoryId: numericCategoryId,
       },
     });
   };
@@ -97,13 +108,12 @@ const QuizPage = () => {
           Soru {currentQuestionIndex + 1} / {questions.length}
         </span>
       </div>
-
       <div className={styles.questionCard}>
         <h2 className={styles.questionText}>{currentQuestion.question}</h2>
         <div className={styles.answersGrid}>
           {currentShuffledAnswers.map((answer) => (
             <button
-              key={answer} // Cevap metinleri bir soru içinde benzersizdir, bu yüzden key olarak kullanılabilir.
+              key={answer}
               className={`${styles.answerButton} ${
                 selectedAnswer === answer ? styles.selected : ""
               }`}
@@ -120,7 +130,6 @@ const QuizPage = () => {
           </p>
         )}
       </div>
-
       <div className={styles.navigationButtons}>
         <button onClick={handlePrev} disabled={currentQuestionIndex === 0}>
           Geri
@@ -132,7 +141,6 @@ const QuizPage = () => {
           İleri
         </button>
       </div>
-
       <div className={styles.finishButtonContainer}>
         <button
           className={styles.finishButton}

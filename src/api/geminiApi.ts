@@ -2,9 +2,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { Question } from "../types";
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
 if (!API_KEY) {
   throw new Error("Gemini API key not found in environment variables.");
 }
+
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 interface AnalysisPayload {
@@ -13,11 +15,12 @@ interface AnalysisPayload {
 }
 
 export const getQuizAnalysis = async (payload: AnalysisPayload): Promise<string> => {
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
 
-  const correctCount = payload.questions.reduce((count, q, index) => {
-    return q.correct_answer === payload.userAnswers[index] ? count + 1 : count;
+  const correctCount = payload.questions.reduce((count, question, index) => {
+    return question.correct_answer === payload.userAnswers[index] ? count + 1 : count;
   }, 0);
+  
   const wrongCount = payload.questions.length - correctCount;
 
   const prompt = `
@@ -31,8 +34,8 @@ export const getQuizAnalysis = async (payload: AnalysisPayload): Promise<string>
 
     Kullanıcının yanlış cevapladığı sorular şunlar:
     ${payload.questions
-      .filter((q, index) => q.correct_answer !== payload.userAnswers[index])
-      .map((q) => `- Soru: "${q.question}", Doğru Cevap: "${q.correct_answer}"`)
+      .filter((question, index) => question.correct_answer !== payload.userAnswers[index])
+      .map((question) => `- Soru: "${question.question}", Doğru Cevap: "${question.correct_answer}"`)
       .join("\n") || "Kullanıcı tüm soruları doğru cevapladı."}
 
     Lütfen analizini aşağıdaki formatta, Markdown kullanarak ve **Türkçe** olarak yap:
