@@ -1,19 +1,27 @@
-import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
+import React from "react";
+import type { Category } from "../types"; // 'type' kelimesi eklendi
 
-export default interface Category {
-  id: number;
-  name: string;
+interface CategorySelectProps {
+  categories: Category[];
+  onCategorySelect: (categoryId: number) => void;
 }
 
-const fetchCategories = async (): Promise<Category[]> => {
-  const { data } = await axios.get("https://opentdb.com/api_category.php");
-  return data.trivia_categories;
+const CategorySelect: React.FC<CategorySelectProps> = ({
+  categories,
+  onCategorySelect,
+}) => {
+  return (
+    <div>
+      {categories.map((category) => (
+        <button
+          key={category.id}
+          onClick={() => onCategorySelect(category.id)}
+        >
+          {category.name}
+        </button>
+      ))}
+    </div>
+  );
 };
 
-export const useCategories = () => {
-  return useQuery<Category[], Error>({
-    queryKey: ["categories"],
-    queryFn: fetchCategories,
-  });
-};
+export default CategorySelect;

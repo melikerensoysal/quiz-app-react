@@ -2,21 +2,27 @@ import { useCategories } from "../../hooks/useCategories";
 import { useNavigate } from "react-router-dom";
 import LoadingSpinner from "../../components/LoadingSpinner/LoadingSpinner";
 import styles from "./HomePage.module.scss";
+import { PATHS } from "../../constants/paths";
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const { data: categories, isLoading, isError, error } = useCategories();
+  const {
+    data: categories,
+    isLoading,
+    isError,
+    error,
+  } = useCategories();
 
   const handleCategorySelect = (categoryId: number) => {
-    navigate(`/quiz/${categoryId}`);
-  };
+  navigate(`${PATHS.QUIZ}/${categoryId}`);
+};
 
   if (isLoading) {
     return <LoadingSpinner text="Kategoriler yükleniyor..." />;
   }
 
   if (isError) {
-    return <div className={styles.error}>Hata: {error.message}</div>;
+    return <div className={styles.error}>{error.message}</div>;
   }
 
   return (

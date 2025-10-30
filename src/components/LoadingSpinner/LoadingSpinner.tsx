@@ -5,13 +5,11 @@ interface LoadingSpinnerProps {
   text?: string;
 }
 
-const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
-  text = "Yükleniyor...",
-}) => {
+const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ text = "Yükleniyor..." }) => {
   return (
     <div className={styles.spinnerOverlay}>
       <div className={styles.spinnerContainer}></div>
-      {text && <p className={styles.spinnerText}>{text}</p>}
+      <p className={styles.spinnerText}>{text}</p>
     </div>
   );
 };
