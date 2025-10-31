@@ -14,11 +14,11 @@ const HomePage = () => {
   } = useCategories();
 
   const handleCategorySelect = (categoryId: number) => {
-  navigate(`${PATHS.QUIZ}/${categoryId}`);
-};
+    navigate(`${PATHS.QUIZ}/${categoryId}`);
+  };
 
   if (isLoading) {
-    return <LoadingSpinner text="Kategoriler yükleniyor..." />;
+    return <LoadingSpinner text="Loading categories..." />;
   }
 
   if (isError) {
@@ -27,8 +27,8 @@ const HomePage = () => {
 
   return (
     <div className={styles.homeContainer}>
-      <h1 className={styles.title}>Quiz Uygulaması</h1>
-      <h2 className={styles.subtitle}>Başlamak için bir kategori seçin</h2>
+      <h1 className={styles.title}>Quiz Application</h1>
+      <h2 className={styles.subtitle}>Select a category to get started</h2>
       <div className={styles.categoryGrid}>
         {categories?.map((category) => (
           <button

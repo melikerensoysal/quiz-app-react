@@ -42,7 +42,6 @@ const ResultPage = () => {
 
   const handleRetrySameTest = () => {
     if (!questions) return;
-    // Mevcut soruları state ile QuizPage'e geri gönderiyoruz
     navigate(`${PATHS.QUIZ}/${categoryId}`, {
       state: {
         questions,
@@ -52,21 +51,20 @@ const ResultPage = () => {
 
   const handleStartNewTest = () => {
     if (!categoryId) return;
-    // Sadece categoryId ile gidersek, QuizPage API'den yeni soru çeker
     navigate(`${PATHS.QUIZ}/${categoryId}`);
   };
 
   if (isPending || !analysis) {
-    return <LoadingSpinner text="Yapay zeka sizin için sonuçları analiz ediyor..." />;
+    return <LoadingSpinner text="AI is analyzing your results..." />;
   }
 
   if (isError) {
     return (
       <div className={styles.resultContainer}>
         <div className={styles.error}>
-          Analiz oluşturulurken bir hata oluştu. Lütfen daha sonra tekrar deneyin.
+          An error occurred while generating the analysis. Please try again later.
         </div>
-        <button onClick={() => navigate(PATHS.HOME)} className={styles.navButton}>Anasayfa</button>
+        <button onClick={() => navigate(PATHS.HOME)} className={styles.navButton}>Home</button>
       </div>
     );
   }
@@ -84,13 +82,22 @@ const ResultPage = () => {
 
   return (
     <div className={styles.resultContainer}>
-      <h1 className={styles.title}>Test Sonuç Analizi</h1>
-      <div className={styles.analysisBox} dangerouslySetInnerHTML={{ __html: formatAnalysis(analysis) }} />
+      <h1 className={styles.title}>Quiz Result Analysis</h1>
+      <div
+        className={styles.analysisBox}
+        dangerouslySetInnerHTML={{ __html: formatAnalysis(analysis) }}
+      />
       
       <div className={styles.buttonGroup}>
-        <button onClick={handleRetrySameTest} className={styles.navButton}>Aynı Testi Yeniden Çöz</button>
-        <button onClick={handleStartNewTest} className={styles.navButton}>Yeni Teste Başla</button>
-        <button onClick={() => navigate(PATHS.HOME)} className={styles.navButton}>Anasayfa</button>
+        <button onClick={handleRetrySameTest} className={styles.navButton}>
+          Retry the Same Test
+        </button>
+        <button onClick={handleStartNewTest} className={styles.navButton}>
+          Start a New Test
+        </button>
+        <button onClick={() => navigate(PATHS.HOME)} className={styles.navButton}>
+          Home
+        </button>
       </div>
     </div>
   );
