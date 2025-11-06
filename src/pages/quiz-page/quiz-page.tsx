@@ -170,6 +170,7 @@ const QuizPage = () => {
         <p>You have used all your attempts for this question!</p>
       </Modal>
 
+      {/* Header */}
       <div className={styles["progress-header"]}>
         <span className={styles["category-name"]}>{he.decode(currentQuestion.category)}</span>
         <span className={styles["timer"]}>{formatTime(timeLeft)}</span>
