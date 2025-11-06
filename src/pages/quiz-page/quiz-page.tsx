@@ -150,7 +150,6 @@ const QuizPage = () => {
 
   return (
     <div className={styles["quiz-container"]}>
-      {/* Modals */}
       <Modal
         show={showWarningModal}
         title="Time Warning"
@@ -171,7 +170,6 @@ const QuizPage = () => {
         <p>You have used all your attempts for this question!</p>
       </Modal>
 
-      {/* Header */}
       <div className={styles["progress-header"]}>
         <span className={styles["category-name"]}>{he.decode(currentQuestion.category)}</span>
         <span className={styles["timer"]}>{formatTime(timeLeft)}</span>
