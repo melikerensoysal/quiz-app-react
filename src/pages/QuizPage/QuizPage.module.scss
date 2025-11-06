@@ -1,0 +1,209 @@
+.quiz-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+
+  .error {
+    text-align: center;
+    color: #e74c3c;
+    font-size: 1.2rem;
+  }
+
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+
+    .category-name {
+      font-size: 1.1rem;
+      color: #555;
+      font-weight: 500;
+      flex: 1;
+      text-align: left;
+    }
+
+    .timer {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #e74c3c;
+      flex: 1;
+      text-align: center;
+    }
+
+    .progress-counter {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #3498db;
+      flex: 1;
+      text-align: right;
+    }
+  }
+
+  .question-card {
+    background-color: #ffffff;
+    padding: 2.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+
+    .question-text {
+      font-size: 1.5rem;
+      line-height: 1.6;
+      color: #2c3e50;
+      margin-bottom: 2rem;
+      text-align: center;
+      min-height: 100px;
+    }
+
+    .answers-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      min-height: 200px;
+    }
+
+    .answer-button {
+      background-color: #fdfdfd;
+      border: 2px solid #ecf0f1;
+      border-radius: 8px;
+      padding: 1rem;
+      font-size: 1rem;
+      color: #34495e;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+      text-align: left;
+      height: 100%;
+
+      &:hover {
+        border-color: #bdc3c7;
+        background-color: #f7f9fa;
+      }
+
+      &.selected {
+        background-color: #3498db;
+        color: #ffffff;
+        border-color: #2980b9;
+        font-weight: 600;
+        transform: scale(1.02);
+        transition: all 0.15s ease-in-out;
+      }
+
+      &:disabled {
+        opacity: 0.7;
+        background-color: #f7f9fa;
+        cursor: not-allowed;
+        border-color: #e0e0e0;
+      }
+    }
+
+    .locked-warning {
+      color: #e74c3c;
+      font-weight: 500;
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 1rem;
+      background-color: #fdecea;
+      padding: 0.75rem;
+      border-radius: 6px;
+      border: 1px solid #f5b7b1;
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-5px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  }
+
+  .navigation-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+
+    button {
+      background-color: #2c3e50;
+      color: white;
+      border: none;
+      padding: 0.8rem 2rem;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s ease;
+
+      &:hover:not(:disabled) {
+        background-color: #34495e;
+        transform: scale(1.03);
+      }
+
+      &:disabled {
+        background-color: #95a5a6;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  .finish-button-container {
+    text-align: center;
+
+    .finish-button {
+      background-color: #27ae60;
+      color: white;
+      border: none;
+      padding: 1rem 3rem;
+      border-radius: 5px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s ease;
+
+      &:hover {
+        background-color: #2ecc71;
+        transform: scale(1.05);
+      }
+
+      &:disabled {
+        background-color: #95a5a6;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  @media (max-width: 600px) {
+    .question-card {
+      padding: 1.5rem;
+      min-height: 300px;
+
+      .question-text {
+        font-size: 1.2rem;
+      }
+
+      .answers-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .progress-header {
+      flex-direction: column;
+      gap: 0.5rem;
+
+      .category-name,
+      .timer,
+      .progress-counter {
+        text-align: center;
+        flex: auto;
+      }
+    }
+  }
+}
