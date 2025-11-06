@@ -51,6 +51,14 @@ const QuizPage = () => {
 
   const handleFinishTest = useCallback(() => {
     if (!questions) return;
+
+    const answeredCount = Object.keys(userAnswers).length;
+    if (answeredCount === 0) {
+      alert("You must answer at least one question before finishing the test!");
+      return;
+    }
+
+    localStorage.removeItem("quizState");
     navigate(PATHS.RESULT, {
       state: { questions, userAnswers, categoryId: numericCategoryId },
     });
@@ -68,7 +76,9 @@ const QuizPage = () => {
     }
     if (newQuestions && newQuestions.length > 0) {
       const shuffled = newQuestions.map((q) =>
-        [...q.incorrect_answers, q.correct_answer].sort(() => Math.random() - 0.5)
+        [...q.incorrect_answers, q.correct_answer].sort(
+          () => Math.random() - 0.5
+        )
       );
       setShuffledAnswers(shuffled);
       setCurrentQuestionIndex(0);
@@ -158,7 +168,11 @@ const QuizPage = () => {
         <p>You have 1 minute left to complete the quiz!</p>
       </Modal>
 
-      <Modal show={showTimeUpModal} title="Time's Up!" onClose={handleFinishTest}>
+      <Modal
+        show={showTimeUpModal}
+        title="Time's Up!"
+        onClose={handleFinishTest}
+      >
         <p>Your time has expired. Your results will now be analyzed.</p>
       </Modal>
 
@@ -170,18 +184,29 @@ const QuizPage = () => {
         <p>You have used all your attempts for this question!</p>
       </Modal>
 
-      {/* Header */}
       <div className={styles["progress-header"]}>
-        <span className={styles["category-name"]}>{he.decode(currentQuestion.category)}</span>
-        <span className={styles["timer"]}>{formatTime(timeLeft)}</span>
+        <span className={styles["category-name"]}>
+          {he.decode(currentQuestion.category)}
+        </span>
+        <span
+          className={styles["timer"]}
+          style={{
+            color: timeLeft <= 60 ? "#e74c3c" : "#3498db",
+            transition: "color 0.5s ease-in-out",
+            fontWeight: 600,
+          }}
+        >
+          {formatTime(timeLeft)}
+        </span>
         <span className={styles["progress-counter"]}>
           Question {currentQuestionIndex + 1} / {questions.length}
         </span>
       </div>
 
-      {/* Question */}
       <div className={styles["question-card"]}>
-        <h2 className={styles["question-text"]}>{he.decode(currentQuestion.question)}</h2>
+        <h2 className={styles["question-text"]}>
+          {he.decode(currentQuestion.question)}
+        </h2>
         <div className={styles["answers-grid"]} style={gridStyle}>
           {currentAnswers.map((answer) => (
             <button
@@ -203,7 +228,6 @@ const QuizPage = () => {
         )}
       </div>
 
-      {/* Navigation */}
       <div className={styles["navigation-buttons"]}>
         <button onClick={handlePrev} disabled={currentQuestionIndex === 0}>
           Previous

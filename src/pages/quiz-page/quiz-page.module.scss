@@ -2,6 +2,10 @@
   max-width: 800px;
   margin: 2rem auto;
   padding: 2rem;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 
   .error {
     text-align: center;
@@ -48,38 +52,45 @@
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     margin-bottom: 2rem;
-    min-height: 400px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    height: 380px;
+    overflow: hidden;
 
     .question-text {
       font-size: 1.5rem;
-      line-height: 1.6;
+      line-height: 1.5;
       color: #2c3e50;
-      margin-bottom: 2rem;
       text-align: center;
-      min-height: 100px;
+      margin-bottom: 1.2rem;
+      flex: 0 0 90px;
+      overflow-y: auto;
     }
 
     .answers-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 1rem;
-      min-height: 200px;
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 4px;
     }
 
     .answer-button {
       background-color: #fdfdfd;
       border: 2px solid #ecf0f1;
       border-radius: 8px;
-      padding: 1rem;
-      font-size: 1rem;
+      padding: 0.75rem;
+      font-size: 0.95rem;
       color: #34495e;
       cursor: pointer;
       transition: all 0.2s ease-in-out;
-      text-align: left;
-      height: 100%;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 55px;
 
       &:hover {
         border-color: #bdc3c7;
@@ -92,7 +103,6 @@
         border-color: #2980b9;
         font-weight: 600;
         transform: scale(1.02);
-        transition: all 0.15s ease-in-out;
       }
 
       &:disabled {
@@ -114,6 +124,7 @@
       border-radius: 6px;
       border: 1px solid #f5b7b1;
       animation: fadeIn 0.4s ease;
+      flex-shrink: 0;
     }
 
     @keyframes fadeIn {
@@ -157,6 +168,9 @@
 
   .finish-button-container {
     text-align: center;
+    padding-bottom: 1rem;
+    position: static;
+    bottom: 0;
 
     .finish-button {
       background-color: #27ae60;
@@ -181,12 +195,15 @@
   }
 
   @media (max-width: 600px) {
+    padding: 1rem;
+
     .question-card {
       padding: 1.5rem;
-      min-height: 300px;
+      height: 320px;
 
       .question-text {
         font-size: 1.2rem;
+        flex: 0 0 70px;
       }
 
       .answers-grid {
