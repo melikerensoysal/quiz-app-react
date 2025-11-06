@@ -6,7 +6,7 @@ import styles from "./quiz-page.module.scss";
 import { PATHS } from "../../constants/paths";
 import he from "he";
 import type { Question } from "../../types";
-import Modal from "../../components/modal/modal";
+import Modal from "../../components/modal2/modal";
 
 const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
