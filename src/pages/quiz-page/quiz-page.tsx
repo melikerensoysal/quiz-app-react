@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useQuestions } from "../../hooks/use-questions";
 import LoadingSpinner from "../../components/loading-spinner/loading-spinner";
-import Modal from "../../components/Modal/modal";
+import Modal from "../../components/modal/modal";
 import styles from "./quiz-page.module.scss";
 import { PATHS } from "../../constants/paths";
+import he from "he";
 import type { Question } from "../../types";
 
 const formatTime = (seconds: number): string => {
@@ -143,12 +144,13 @@ const QuizPage = () => {
   const currentQuestion = questions[currentQuestionIndex];
   const currentAnswers = shuffledAnswers[currentQuestionIndex] || [];
   const selectedAnswer = userAnswers[currentQuestionIndex];
-  const isLocked = (changeCounts[currentQuestionIndex] || 0) >= 3; //
+  const isLocked = (changeCounts[currentQuestionIndex] || 0) >= 3;
   const gridStyle =
     currentAnswers.length === 3 ? { gridTemplateColumns: "1fr" } : {};
 
   return (
     <div className={styles["quiz-container"]}>
+      {/* Modals */}
       <Modal
         show={showWarningModal}
         title="Time Warning"
@@ -169,16 +171,18 @@ const QuizPage = () => {
         <p>You have used all your attempts for this question!</p>
       </Modal>
 
+      {/* Header */}
       <div className={styles["progress-header"]}>
-        <span className={styles["category-name"]}>{currentQuestion.category}</span>
+        <span className={styles["category-name"]}>{he.decode(currentQuestion.category)}</span>
         <span className={styles["timer"]}>{formatTime(timeLeft)}</span>
         <span className={styles["progress-counter"]}>
           Question {currentQuestionIndex + 1} / {questions.length}
         </span>
       </div>
 
+      {/* Question */}
       <div className={styles["question-card"]}>
-        <h2 className={styles["question-text"]}>{currentQuestion.question}</h2>
+        <h2 className={styles["question-text"]}>{he.decode(currentQuestion.question)}</h2>
         <div className={styles["answers-grid"]} style={gridStyle}>
           {currentAnswers.map((answer) => (
             <button
@@ -189,7 +193,7 @@ const QuizPage = () => {
               onClick={() => handleAnswerSelect(answer)}
               disabled={isLocked && selectedAnswer !== answer}
             >
-              {answer}
+              {he.decode(answer)}
             </button>
           ))}
         </div>
@@ -200,6 +204,7 @@ const QuizPage = () => {
         )}
       </div>
 
+      {/* Navigation */}
       <div className={styles["navigation-buttons"]}>
         <button onClick={handlePrev} disabled={currentQuestionIndex === 0}>
           Previous
