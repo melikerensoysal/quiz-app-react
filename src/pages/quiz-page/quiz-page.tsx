@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useQuestions } from "../../hooks/use-questions";
 import LoadingSpinner from "../../components/loading-spinner/loading-spinner";
-import Modal from "../../components/modal/modal";
 import styles from "./quiz-page.module.scss";
 import { PATHS } from "../../constants/paths";
 import he from "he";
 import type { Question } from "../../types";
+import Modal from "../../components/modal/modal";
 
 const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
