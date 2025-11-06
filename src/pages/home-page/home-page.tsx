@@ -1,7 +1,7 @@
-import { useCategories } from "../../hooks/useCategories";
+import { useCategories } from "../../hooks/use-categories";
 import { useNavigate } from "react-router-dom";
-import LoadingSpinner from "../../components/LoadingSpinner/LoadingSpinner";
-import styles from "./HomePage.module.scss";
+import LoadingSpinner from "../../components/loading-spinner/loading-spinner";
+import styles from "./home-page.module.scss";
 import { PATHS } from "../../constants/paths";
 
 const HomePage = () => {

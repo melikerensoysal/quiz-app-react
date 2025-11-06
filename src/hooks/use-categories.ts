@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchCategories } from "../api/opentdb";
-import { QUERY_KEYS } from "../constants/queryKeys";
+import { QUERY_KEYS } from "../constants/query-keys";
 import type { Category } from "../types";
 
 export const useCategories = () => {

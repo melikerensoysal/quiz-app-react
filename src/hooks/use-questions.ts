@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { QUERY_KEYS } from "../constants/queryKeys";
+import { QUERY_KEYS } from "../constants/query-keys";
 import type { Question } from "../types";
 
 const fetchQuestions = async (categoryId: number) => {

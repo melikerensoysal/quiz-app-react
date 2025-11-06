@@ -1,7 +1,7 @@
 import { Routes, Route } from "react-router-dom";
-import HomePage from "./pages/HomePage/HomePage";
-import QuizPage from "./pages/QuizPage/QuizPage";
-import ResultPage from "./pages/ResultPage/ResultPage";
+import HomePage from "./pages/home-page/home-page";
+import QuizPage from "./pages/QuizPage/quiz-page";
+import ResultPage from "./pages/result-page/result-page";
 import { PATHS } from "./constants/paths";
 
 function App() {

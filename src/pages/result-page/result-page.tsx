@@ -1,13 +1,13 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { getQuizAnalysis } from "../../api/geminiApi";
+import { getQuizAnalysis } from "../../api/gemini-api";
 import { useEffect } from "react";
-import LoadingSpinner from "../../components/LoadingSpinner/LoadingSpinner";
+import LoadingSpinner from "../../components/loading-spinner/loading-spinner";
 import type { Question } from "../../types";
-import styles from "./ResultPage.module.scss";
+import styles from "./result-page.module.scss";
 import { PATHS } from "../../constants/paths";
 import DOMPurify from "dompurify";
-import { QUERY_KEYS } from "../../constants/queryKeys";
+import { QUERY_KEYS } from "../../constants/query-keys";
 
 const ResultPage = () => {
   const location = useLocation();
