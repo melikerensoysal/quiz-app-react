@@ -26,9 +26,56 @@ const ResultPage = () => {
     categoryId: null,
   };
 
-  const { mutate: generateAnalysis, data: analysis, isPending, isError } = useMutation({
-    mutationFn: getQuizAnalysis,
-  });
+  const { mutate: generateAnalysis, data: analysis, isPending, isError } =
+    useMutation({
+      mutationFn: getQuizAnalysis,
+    });
+
+  useEffect(() => {
+    const pageTitle = "Quiz Results - React Quiz App";
+    const description =
+      "View your quiz results and detailed AI-based analysis. Understand your strengths and weaknesses instantly.";
+    const url = "https://quiz-app-react-blush.vercel.app/result";
+
+    document.title = pageTitle;
+
+    let metaDesc = document.querySelector("meta[name='description']");
+    if (!metaDesc) {
+      metaDesc = document.createElement("meta");
+      metaDesc.setAttribute("name", "description");
+      document.head.appendChild(metaDesc);
+    }
+    metaDesc.setAttribute("content", description);
+
+    const setMeta = (property: string, content: string) => {
+      let meta = document.querySelector(`meta[property='${property}']`);
+      if (!meta) {
+        meta = document.createElement("meta");
+        meta.setAttribute("property", property);
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute("content", content);
+    };
+
+    setMeta("og:title", pageTitle);
+    setMeta("og:description", description);
+    setMeta("og:url", url);
+    setMeta("og:type", "website");
+
+    const setTwitter = (name: string, content: string) => {
+      let meta = document.querySelector(`meta[name='${name}']`);
+      if (!meta) {
+        meta = document.createElement("meta");
+        meta.setAttribute("name", name);
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute("content", content);
+    };
+
+    setTwitter("twitter:card", "summary_large_image");
+    setTwitter("twitter:title", pageTitle);
+    setTwitter("twitter:description", description);
+  }, []);
 
   useEffect(() => {
     if (questions && userAnswers) {
@@ -67,9 +114,13 @@ const ResultPage = () => {
     return (
       <div className={styles["result-container"]}>
         <div className={styles.error}>
-          An error occurred while generating the analysis. Please try again later.
+          An error occurred while generating the analysis. Please try again
+          later.
         </div>
-        <button onClick={() => navigate(PATHS.HOME)} className={styles["nav-button"]}>
+        <button
+          onClick={() => navigate(PATHS.HOME)}
+          className={styles["nav-button"]}
+        >
           Home
         </button>
       </div>
@@ -95,18 +146,33 @@ const ResultPage = () => {
   return (
     <div className={styles["result-container"]}>
       <h1 className={styles.title}>Quiz Result Analysis</h1>
+
+      {/* Analysis Box */}
       <div
         className={styles["analysis-box"]}
         dangerouslySetInnerHTML={{ __html: sanitizedAnalysis }}
-      />
+      ></div>
+
+      {/* Button Group */}
       <div className={styles["button-group"]}>
-        <button onClick={handleRetrySameTest} className={styles["nav-button"]}>
+        <button
+          onClick={handleRetrySameTest}
+          className={styles["nav-button"]}
+        >
           Retry the Same Test
         </button>
-        <button onClick={handleStartNewTest} className={styles["nav-button"]}>
+
+        <button
+          onClick={handleStartNewTest}
+          className={styles["nav-button"]}
+        >
           Start a New Test
         </button>
-        <button onClick={() => navigate(PATHS.HOME)} className={styles["nav-button"]}>
+
+        <button
+          onClick={() => navigate(PATHS.HOME)}
+          className={styles["nav-button"]}
+        >
           Home
         </button>
       </div>

@@ -39,8 +39,40 @@ const QuizPage = () => {
   const [timerActive, setTimerActive] = useState<boolean>(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showTimeUpModal, setShowTimeUpModal] = useState(false);
-
   const [showAttemptModal, setShowAttemptModal] = useState(false);
+
+  useEffect(() => {
+    const currentTitle = categoryId
+      ? `Quiz ${categoryId} - React Quiz App`
+      : "Quiz - React Quiz App";
+    document.title = currentTitle;
+
+    const descriptionContent = categoryId
+      ? `Answer questions in Quiz ${categoryId} and test your knowledge using this interactive React app.`
+      : "Answer quiz questions and test your knowledge with this interactive React app.";
+
+    let metaDesc = document.querySelector("meta[name='description']");
+    if (!metaDesc) {
+      metaDesc = document.createElement("meta");
+      metaDesc.setAttribute("name", "description");
+      document.head.appendChild(metaDesc);
+    }
+    metaDesc.setAttribute("content", descriptionContent);
+
+    const setMeta = (property: string, content: string) => {
+      let meta = document.querySelector(`meta[property='${property}']`);
+      if (!meta) {
+        meta = document.createElement("meta");
+        meta.setAttribute("property", property);
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute("content", content);
+    };
+
+    setMeta("og:title", currentTitle);
+    setMeta("og:description", descriptionContent);
+    setMeta("og:type", "website");
+  }, [categoryId]);
 
   useEffect(() => {
     if (location.state?.forceNew) {
