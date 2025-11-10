@@ -98,6 +98,30 @@ const QuizPage = () => {
 
   useEffect(() => {
     if (isQuizInitialized || isLoading) return;
+
+    const savedState = localStorage.getItem("quizState");
+    if (savedState) {
+      const parsed = JSON.parse(savedState);
+      if (parsed && parsed.categoryId === numericCategoryId) {
+        if (parsed.questions) {
+          setLocalQuestions(parsed.questions);
+          const shuffled = parsed.questions.map((q: Question) =>
+            [...q.incorrect_answers, q.correct_answer].sort(() => Math.random() - 0.5)
+          );
+          setShuffledAnswers(shuffled);
+        }
+        setUserAnswers(parsed.userAnswers || {});
+        setChangeCounts(parsed.changeCounts || {});
+        setCurrentQuestionIndex(parsed.currentQuestionIndex || 0);
+        setTimeLeft(parsed.timeLeft || 0);
+        setIsQuizInitialized(true);
+        setTimerActive(true);
+        setShowWarningModal(false);
+        setShowTimeUpModal(false);
+        return;
+      }
+    }
+
     let newQuestions: Question[] | null = null;
     if (location.state?.retry && location.state?.questions) {
       newQuestions = location.state.questions;
@@ -108,9 +132,7 @@ const QuizPage = () => {
     }
     if (newQuestions && newQuestions.length > 0) {
       const shuffled = newQuestions.map((q) =>
-        [...q.incorrect_answers, q.correct_answer].sort(
-          () => Math.random() - 0.5
-        )
+        [...q.incorrect_answers, q.correct_answer].sort(() => Math.random() - 0.5)
       );
       setShuffledAnswers(shuffled);
       setCurrentQuestionIndex(0);
@@ -140,15 +162,29 @@ const QuizPage = () => {
     return () => clearInterval(timerId);
   }, [timeLeft, timerActive, showWarningModal, showTimeUpModal]);
 
+  useEffect(() => {
+    if (!isQuizInitialized) return;
+    const quizState = {
+      userAnswers,
+      changeCounts,
+      currentQuestionIndex,
+      timeLeft,
+      categoryId: numericCategoryId,
+      questions: localQuestions || questionsFromApi,
+    };
+    localStorage.setItem("quizState", JSON.stringify(quizState));
+  }, [userAnswers, changeCounts, currentQuestionIndex, timeLeft, isQuizInitialized]);
+
   const handleAnswerSelect = (answer: string) => {
     const currentChanges = changeCounts[currentQuestionIndex] || 0;
+    const currentAnswer = userAnswers[currentQuestionIndex];
 
-    if (currentChanges === 2) {
-      setChangeCounts((prev) => ({
-        ...prev,
-        [currentQuestionIndex]: currentChanges + 1,
-      }));
+    if (currentChanges >= 3) {
       setShowAttemptModal(true);
+      return;
+    }
+
+    if (currentAnswer === answer) {
       return;
     }
 
