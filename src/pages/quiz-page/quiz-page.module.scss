@@ -86,17 +86,23 @@
     .answer-button {
       background-color: #fdfdfd;
       border: 2px solid #ecf0f1;
-      border-radius: 8px;
-      padding: 0.9rem;
-      font-size: 1rem;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      font-size: 1.05rem;
       color: #34495e;
       cursor: pointer;
       transition: all 0.2s ease-in-out;
       text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 70px;
+      font-weight: 500;
 
       &:hover {
         border-color: #bdc3c7;
         background-color: #f7f9fa;
+        transform: scale(1.03);
       }
 
       &.selected {
@@ -104,7 +110,7 @@
         color: #ffffff;
         border-color: #2980b9;
         font-weight: 600;
-        transform: scale(1.02);
+        transform: scale(1.05);
       }
 
       &:disabled {
@@ -112,6 +118,30 @@
         background-color: #f7f9fa;
         cursor: not-allowed;
         border-color: #e0e0e0;
+      }
+    }
+
+    .locked-warning {
+      color: #e74c3c;
+      font-weight: 600;
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 1rem;
+      background-color: #fdecea;
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      border: 1px solid #f5b7b1;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
       }
     }
 

@@ -20,6 +20,8 @@ interface QuizPersistenceProps {
   timeLeft: number;
   questions: Question[] | null | undefined;
   setTestId: (v: string) => void;
+  shuffledAnswers: string[][];
+  setShuffledAnswers: (v: string[][]) => void;
 }
 
 export const useQuizPersistence = ({
@@ -41,40 +43,56 @@ export const useQuizPersistence = ({
   timeLeft,
   questions,
   setTestId,
+  shuffledAnswers,
+  setShuffledAnswers,
 }: QuizPersistenceProps) => {
   const quizKey = `quizState_${categoryId}`;
+  const quizIdKey = `quizId_${categoryId}`;
 
-  const saveState = useCallback(
-    (testId: string) => {
-      if (!isQuizInitialized) return;
-      const quizState = {
-        testId,
-        userAnswers,
-        changeCounts,
-        currentQuestionIndex,
-        timeLeft,
-        categoryId,
-        questions,
-      };
-      localStorage.setItem(quizKey, JSON.stringify(quizState));
-    },
-    [
+  const saveState = useCallback(() => {
+    if (!isQuizInitialized) return;
+    const quizState = {
       userAnswers,
       changeCounts,
       currentQuestionIndex,
       timeLeft,
       categoryId,
       questions,
-      isQuizInitialized,
-    ]
-  );
+      shuffledAnswers,
+    };
+    localStorage.setItem(quizKey, JSON.stringify(quizState));
+  }, [
+    userAnswers,
+    changeCounts,
+    currentQuestionIndex,
+    timeLeft,
+    categoryId,
+    questions,
+    shuffledAnswers,
+    isQuizInitialized,
+  ]);
 
   useEffect(() => {
+    if (!isQuizInitialized) return;
+    if (!localStorage.getItem(quizIdKey)) {
+      const id = `${quizIdKey}_${Date.now()}`;
+      localStorage.setItem(quizIdKey, id);
+      setTestId(id);
+    } else {
+      const existing = localStorage.getItem(quizIdKey);
+      if (existing) setTestId(existing);
+    }
+  }, [isQuizInitialized, quizIdKey, setTestId]);
+
+  useEffect(() => {
+    if (isQuizInitialized) return;
     const saved = localStorage.getItem(quizKey);
-    if (saved && !isQuizInitialized) {
+
+    if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed?.categoryId === categoryId) {
+      if (parsed && parsed.categoryId === categoryId) {
         if (parsed.questions) setLocalQuestions(parsed.questions);
+        if (parsed.shuffledAnswers) setShuffledAnswers(parsed.shuffledAnswers);
         setUserAnswers(parsed.userAnswers || {});
         setChangeCounts(parsed.changeCounts || {});
         setCurrentQuestionIndex(parsed.currentQuestionIndex || 0);
@@ -83,14 +101,22 @@ export const useQuizPersistence = ({
         setTimerActive(true);
         setShowWarningModal(false);
         setShowTimeUpModal(false);
-        setTestId(parsed.testId || crypto.randomUUID());
         return;
       }
     }
 
-    if (questionsFromApi && questionsFromApi.length > 0 && !isQuizInitialized) {
-      const newTestId = crypto.randomUUID();
+    if (questionsFromApi && questionsFromApi.length > 0) {
+      const shuffled = questionsFromApi.map((q) => {
+        const all = [...q.incorrect_answers, q.correct_answer];
+        for (let i = all.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [all[i], all[j]] = [all[j], all[i]];
+        }
+        return all;
+      });
+
       setLocalQuestions(questionsFromApi);
+      setShuffledAnswers(shuffled);
       setUserAnswers({});
       setChangeCounts({});
       setCurrentQuestionIndex(0);
@@ -99,14 +125,11 @@ export const useQuizPersistence = ({
       setTimerActive(true);
       setShowWarningModal(false);
       setShowTimeUpModal(false);
-      setTestId(newTestId);
-      saveState(newTestId);
     }
   }, [
     isQuizInitialized,
     questionsFromApi,
     categoryId,
-    quizKey,
     setLocalQuestions,
     setUserAnswers,
     setChangeCounts,
@@ -116,44 +139,31 @@ export const useQuizPersistence = ({
     setTimerActive,
     setShowWarningModal,
     setShowTimeUpModal,
-    saveState,
-    setTestId,
+    setShuffledAnswers,
+    quizKey,
   ]);
 
   useEffect(() => {
-    const stored = localStorage.getItem(quizKey);
-    const parsed = stored ? JSON.parse(stored) : null;
-    const testId = parsed?.testId || crypto.randomUUID();
-    saveState(testId);
+    if (!isQuizInitialized) return;
+    saveState();
   }, [
     userAnswers,
     changeCounts,
     currentQuestionIndex,
-    timeLeft,
     isQuizInitialized,
     saveState,
   ]);
 
   useEffect(() => {
     if (!isQuizInitialized) return;
-    const interval = setInterval(() => {
-      const stored = localStorage.getItem(quizKey);
-      const parsed = stored ? JSON.parse(stored) : null;
-      const testId = parsed?.testId || crypto.randomUUID();
-      saveState(testId);
-    }, 30000);
+    const interval = setInterval(saveState, 30000);
     return () => clearInterval(interval);
-  }, [isQuizInitialized, quizKey, saveState]);
+  }, [isQuizInitialized, saveState]);
 
   useEffect(() => {
     if (!isQuizInitialized) return;
-    const handleBeforeUnload = () => {
-      const stored = localStorage.getItem(quizKey);
-      const parsed = stored ? JSON.parse(stored) : null;
-      const testId = parsed?.testId || crypto.randomUUID();
-      saveState(testId);
-    };
+    const handleBeforeUnload = () => saveState();
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isQuizInitialized, saveState, quizKey]);
+  }, [isQuizInitialized, saveState]);
 };

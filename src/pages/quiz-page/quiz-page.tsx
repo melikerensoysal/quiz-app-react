@@ -23,8 +23,10 @@ const QuizPage = () => {
   const { refreshToken } = location.state || {};
 
   const [localQuestions, setLocalQuestions] = useState<Question[] | null>(null);
+  const [shuffledAnswers, setShuffledAnswers] = useState<string[][]>([]);
   const shouldFetch =
     !localStorage.getItem(`quizState_${numericCategoryId}`) && !localQuestions;
+
   const {
     data: questionsFromApi,
     isLoading,
@@ -63,6 +65,8 @@ const QuizPage = () => {
     timeLeft,
     questions,
     setTestId,
+    shuffledAnswers,
+    setShuffledAnswers,
   });
 
   useEffect(() => {
@@ -134,10 +138,7 @@ const QuizPage = () => {
   }
 
   const currentQuestion = questions[currentQuestionIndex];
-  const answers = [
-    ...currentQuestion.incorrect_answers,
-    currentQuestion.correct_answer,
-  ].sort(() => Math.random() - 0.5);
+  const currentAnswers = shuffledAnswers[currentQuestionIndex] || [];
 
   return (
     <div className={styles["quiz-container"]}>
@@ -148,6 +149,7 @@ const QuizPage = () => {
       >
         <p>You have 1 minute left to complete the quiz!</p>
       </Modal>
+
       <Modal
         show={showTimeUpModal}
         title="Time's Up!"
@@ -155,6 +157,7 @@ const QuizPage = () => {
       >
         <p>Your time has expired. Your results will now be analyzed.</p>
       </Modal>
+
       <Modal
         show={showAttemptModal}
         title="Answer Limit Reached"
@@ -162,6 +165,7 @@ const QuizPage = () => {
       >
         <p>You have used all your attempts for this question!</p>
       </Modal>
+
       <div className={styles["progress-header"]}>
         <span className={styles["category-name"]}>
           {he.decode(currentQuestion.category)}
@@ -179,12 +183,14 @@ const QuizPage = () => {
           Question {currentQuestionIndex + 1} / {questions.length}
         </span>
       </div>
+
       <div className={styles["question-card"]}>
         <h2 className={styles["question-text"]}>
           {he.decode(currentQuestion.question)}
         </h2>
+
         <div className={styles["answers-grid"]}>
-          {answers.map((answer) => (
+          {currentAnswers.map((answer) => (
             <button
               key={answer}
               className={`${styles["answer-button"]} ${
@@ -202,7 +208,14 @@ const QuizPage = () => {
             </button>
           ))}
         </div>
+
+        {(changeCounts[currentQuestionIndex] || 0) >= 3 && (
+          <p className={styles["locked-warning"]}>
+            🔒 You have used all your attempts for this question.
+          </p>
+        )}
       </div>
+
       <div className={styles["navigation-buttons"]}>
         <button onClick={handlePrev} disabled={currentQuestionIndex === 0}>
           Previous
@@ -217,6 +230,7 @@ const QuizPage = () => {
           Next
         </button>
       </div>
+
       <div className={styles["finish-button-container"]}>
         <button className={styles["finish-button"]} onClick={handleFinishTest}>
           Finish Test
