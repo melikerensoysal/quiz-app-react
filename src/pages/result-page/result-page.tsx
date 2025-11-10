@@ -1,112 +1,87 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { getQuizAnalysis } from "../../api/gemini-api";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import LoadingSpinner from "../../components/loading-spinner/loading-spinner";
 import type { Question } from "../../types";
 import styles from "./result-page.module.scss";
 import { PATHS } from "../../constants/paths";
 import DOMPurify from "dompurify";
-import { QUERY_KEYS } from "../../constants/query-keys";
 
 const ResultPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const state = location.state as {
     questions: Question[];
     userAnswers: Record<number, string>;
     categoryId: number;
+    testId: string;
   } | null;
 
-  const { questions, userAnswers, categoryId } = state || {
+  const { questions, userAnswers, categoryId, testId } = state || {
     questions: null,
     userAnswers: null,
     categoryId: null,
+    testId: "",
   };
+
+  const [cachedAnalysis, setCachedAnalysis] = useState<string | null>(null);
 
   const { mutate: generateAnalysis, data: analysis, isPending, isError } =
     useMutation({
       mutationFn: getQuizAnalysis,
+      onSuccess: (data) => {
+        if (testId) {
+          localStorage.setItem(`quizAnalysis_${testId}`, data);
+        }
+      },
     });
 
   useEffect(() => {
     const pageTitle = "Quiz Results - React Quiz App";
     const description =
-      "View your quiz results and detailed AI-based analysis. Understand your strengths and weaknesses instantly.";
+      "View your quiz results and detailed AI-based analysis.";
     const url = "https://quiz-app-react-blush.vercel.app/result";
 
     document.title = pageTitle;
 
-    let metaDesc = document.querySelector("meta[name='description']");
-    if (!metaDesc) {
-      metaDesc = document.createElement("meta");
-      metaDesc.setAttribute("name", "description");
-      document.head.appendChild(metaDesc);
-    }
-    metaDesc.setAttribute("content", description);
-
-    const setMeta = (property: string, content: string) => {
-      let meta = document.querySelector(`meta[property='${property}']`);
+    const ensureMeta = (name: string, content: string, isProperty = false) => {
+      const selector = isProperty ? `meta[property='${name}']` : `meta[name='${name}']`;
+      let meta = document.querySelector(selector);
       if (!meta) {
         meta = document.createElement("meta");
-        meta.setAttribute("property", property);
+        meta.setAttribute(isProperty ? "property" : "name", name);
         document.head.appendChild(meta);
       }
       meta.setAttribute("content", content);
     };
 
-    setMeta("og:title", pageTitle);
-    setMeta("og:description", description);
-    setMeta("og:url", url);
-    setMeta("og:type", "website");
-
-    const setTwitter = (name: string, content: string) => {
-      let meta = document.querySelector(`meta[name='${name}']`);
-      if (!meta) {
-        meta = document.createElement("meta");
-        meta.setAttribute("name", name);
-        document.head.appendChild(meta);
-      }
-      meta.setAttribute("content", content);
-    };
-
-    setTwitter("twitter:card", "summary_large_image");
-    setTwitter("twitter:title", pageTitle);
-    setTwitter("twitter:description", description);
+    ensureMeta("description", description);
+    ensureMeta("og:title", pageTitle, true);
+    ensureMeta("og:description", description, true);
+    ensureMeta("og:url", url, true);
+    ensureMeta("og:type", "website", true);
+    ensureMeta("twitter:card", "summary_large_image");
+    ensureMeta("twitter:title", pageTitle);
+    ensureMeta("twitter:description", description);
   }, []);
 
   useEffect(() => {
-    if (questions && userAnswers) {
-      generateAnalysis({ questions, userAnswers });
-    } else {
+    if (!questions || !userAnswers || !testId) {
       navigate(PATHS.HOME);
+      return;
     }
-  }, [questions, userAnswers, generateAnalysis, navigate]);
 
-  const handleRetrySameTest = () => {
-    if (!questions || !categoryId) return;
-    const path = PATHS.QUIZ.replace(":categoryId", categoryId.toString());
-    navigate(path, {
-      state: {
-        questions,
-        retry: true,
-      },
-    });
-  };
+    const cached = localStorage.getItem(`quizAnalysis_${testId}`);
+    if (cached) {
+      setCachedAnalysis(cached);
+    } else {
+      generateAnalysis({ questions, userAnswers });
+    }
+  }, [questions, userAnswers, testId, generateAnalysis, navigate]);
 
-  const handleStartNewTest = () => {
-    if (!categoryId) return;
-    queryClient.invalidateQueries({
-      queryKey: [QUERY_KEYS.QUESTIONS, categoryId],
-    });
-    const refreshToken = Date.now();
-    const path = PATHS.QUIZ.replace(":categoryId", categoryId.toString());
-    navigate(path, { state: { refreshToken } });
-  };
-
-  if (isPending || !analysis) {
+  if ((isPending && !cachedAnalysis) || (!analysis && !cachedAnalysis)) {
     return <LoadingSpinner text="AI is analyzing your results..." />;
   }
 
@@ -114,8 +89,7 @@ const ResultPage = () => {
     return (
       <div className={styles["result-container"]}>
         <div className={styles.error}>
-          An error occurred while generating the analysis. Please try again
-          later.
+          An error occurred while generating the analysis.
         </div>
         <button
           onClick={() => navigate(PATHS.HOME)}
@@ -127,48 +101,50 @@ const ResultPage = () => {
     );
   }
 
-  const formatAnalysis = (text: string) => {
-    let html = text
+  const finalAnalysis = cachedAnalysis || analysis || "";
+  const html = DOMPurify.sanitize(
+    finalAnalysis
       .replace(/### (.*)/g, "<h3>$1</h3>")
       .replace(/# (.*)/g, "<h1>$1</h1>")
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(/`([^`]+)`/g, "<code>$1</code>")
       .replace(/^- (.*)/gm, "<li>$1</li>")
       .replace(/\n/g, "<br />")
-      .replace(/<br \/><li>/g, "<li>");
-    html = html.replace(/(<li>.*?<\/li>)/gs, "<ul>$1</ul>");
-    html = html.replace(/<\/ul><br \/><ul>/g, "");
-    return html;
+      .replace(/<br \/><li>/g, "<li>")
+      .replace(/(<li>.*?<\/li>)/gs, "<ul>$1</ul>")
+      .replace(/<\/ul><br \/><ul>/g, "")
+  );
+
+  const handleRetrySameTest = () => {
+    if (!questions || !categoryId) return;
+    navigate(PATHS.QUIZ.replace(":categoryId", categoryId!.toString()), {
+      state: { questions, retry: true },
+    });
   };
 
-  const sanitizedAnalysis = DOMPurify.sanitize(formatAnalysis(analysis));
+  const handleStartNewTest = () => {
+    if (!categoryId) return;
+    navigate(PATHS.QUIZ.replace(":categoryId", categoryId!.toString()), {
+      state: { refreshToken: Date.now() },
+    });
+  };
 
   return (
     <div className={styles["result-container"]}>
       <h1 className={styles.title}>Quiz Result Analysis</h1>
 
-      {/* Analysis Box */}
       <div
         className={styles["analysis-box"]}
-        dangerouslySetInnerHTML={{ __html: sanitizedAnalysis }}
+        dangerouslySetInnerHTML={{ __html: html }}
       ></div>
 
-      {/* Button Group */}
       <div className={styles["button-group"]}>
-        <button
-          onClick={handleRetrySameTest}
-          className={styles["nav-button"]}
-        >
+        <button onClick={handleRetrySameTest} className={styles["nav-button"]}>
           Retry the Same Test
         </button>
-
-        <button
-          onClick={handleStartNewTest}
-          className={styles["nav-button"]}
-        >
+        <button onClick={handleStartNewTest} className={styles["nav-button"]}>
           Start a New Test
         </button>
-
         <button
           onClick={() => navigate(PATHS.HOME)}
           className={styles["nav-button"]}
