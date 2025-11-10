@@ -79,24 +79,23 @@ export const useQuizPersistence = ({
       localStorage.setItem(quizIdKey, id);
       setTestId(id);
     } else {
-      const existing = localStorage.getItem(quizIdKey);
-      if (existing) setTestId(existing);
+      const existingId = localStorage.getItem(quizIdKey) || "";
+      setTestId(existingId);
     }
   }, [isQuizInitialized, quizIdKey, setTestId]);
 
   useEffect(() => {
     if (isQuizInitialized) return;
     const saved = localStorage.getItem(quizKey);
-
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && parsed.categoryId === categoryId) {
         if (parsed.questions) setLocalQuestions(parsed.questions);
-        if (parsed.shuffledAnswers) setShuffledAnswers(parsed.shuffledAnswers);
         setUserAnswers(parsed.userAnswers || {});
         setChangeCounts(parsed.changeCounts || {});
         setCurrentQuestionIndex(parsed.currentQuestionIndex || 0);
         setTimeLeft(parsed.timeLeft || 0);
+        setShuffledAnswers(parsed.shuffledAnswers || []);
         setIsQuizInitialized(true);
         setTimerActive(true);
         setShowWarningModal(false);
@@ -106,17 +105,11 @@ export const useQuizPersistence = ({
     }
 
     if (questionsFromApi && questionsFromApi.length > 0) {
-      const shuffled = questionsFromApi.map((q) => {
-        const all = [...q.incorrect_answers, q.correct_answer];
-        for (let i = all.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [all[i], all[j]] = [all[j], all[i]];
-        }
-        return all;
-      });
-
-      setLocalQuestions(questionsFromApi);
+      const shuffled = questionsFromApi.map((q) =>
+        [...q.incorrect_answers, q.correct_answer].sort(() => Math.random() - 0.5)
+      );
       setShuffledAnswers(shuffled);
+      setLocalQuestions(questionsFromApi);
       setUserAnswers({});
       setChangeCounts({});
       setCurrentQuestionIndex(0);
@@ -146,13 +139,7 @@ export const useQuizPersistence = ({
   useEffect(() => {
     if (!isQuizInitialized) return;
     saveState();
-  }, [
-    userAnswers,
-    changeCounts,
-    currentQuestionIndex,
-    isQuizInitialized,
-    saveState,
-  ]);
+  }, [userAnswers, changeCounts, currentQuestionIndex, isQuizInitialized, saveState]);
 
   useEffect(() => {
     if (!isQuizInitialized) return;
