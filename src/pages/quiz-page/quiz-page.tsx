@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useQuestions } from "../../hooks/use-questions";
 import LoadingSpinner from "../../components/loading-spinner/loading-spinner";
@@ -24,8 +24,24 @@ const QuizPage = () => {
 
   const [localQuestions, setLocalQuestions] = useState<Question[] | null>(null);
   const [shuffledAnswers, setShuffledAnswers] = useState<string[][]>([]);
+  const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
+  const [changeCounts, setChangeCounts] = useState<Record<number, number>>({});
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [isQuizInitialized, setIsQuizInitialized] = useState(false);
+  const [timerActive, setTimerActive] = useState(false);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [showTimeUpModal, setShowTimeUpModal] = useState(false);
+  const [showAttemptModal, setShowAttemptModal] = useState(false);
+  const [testId, setTestId] = useState<string>("");
+
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const shouldFetch =
-    !localStorage.getItem(`quizState_${numericCategoryId}`) && !localQuestions;
+    (!localStorage.getItem(`quizState_${numericCategoryId}`) ||
+      !!refreshToken) &&
+    !localQuestions &&
+    !!numericCategoryId;
 
   const {
     data: questionsFromApi,
@@ -35,16 +51,6 @@ const QuizPage = () => {
   } = useQuestions(shouldFetch ? numericCategoryId : null, refreshToken);
 
   const questions = localQuestions || questionsFromApi;
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
-  const [changeCounts, setChangeCounts] = useState<Record<number, number>>({});
-  const [timeLeft, setTimeLeft] = useState<number>(0);
-  const [isQuizInitialized, setIsQuizInitialized] = useState(false);
-  const [timerActive, setTimerActive] = useState(false);
-  const [showWarningModal, setShowWarningModal] = useState(false);
-  const [showTimeUpModal, setShowTimeUpModal] = useState(false);
-  const [showAttemptModal, setShowAttemptModal] = useState(false);
-  const [testId, setTestId] = useState<string>("");
 
   useQuizPersistence({
     categoryId: numericCategoryId,
@@ -69,73 +75,94 @@ const QuizPage = () => {
     setShuffledAnswers,
   });
 
+  // ✅ Optimize edilmiş timer kontrolü
   useEffect(() => {
     if (!timerActive) return;
-    if (timeLeft <= 0) {
-      if (!showTimeUpModal) setShowTimeUpModal(true);
-      return;
-    }
-    const timerId = setInterval(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+
+    timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          setShowTimeUpModal(true);
+          return 0;
+        }
         const updated = prev - 1;
         if (updated === 60 && !showWarningModal) setShowWarningModal(true);
         return updated;
       });
     }, 1000);
-    return () => clearInterval(timerId);
-  }, [timeLeft, timerActive, showWarningModal, showTimeUpModal]);
 
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [timerActive]);
+
+  // ✅ Sayfa kapatılırken kalan süreyi kaydet
+  useEffect(() => {
+    const handleUnload = () => {
+      if (numericCategoryId)
+        localStorage.setItem(
+          `quizTime_${numericCategoryId}`,
+          JSON.stringify(timeLeft)
+        );
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, [timeLeft, numericCategoryId]);
+
+  // ✅ Süre bittiğinde kullanıcı hiç cevap vermemişse ana sayfaya dön
   const handleFinishTest = useCallback(() => {
     if (!questions) return;
     const answeredCount = Object.keys(userAnswers).length;
+
     if (answeredCount === 0) {
-      alert("You must answer at least one question before finishing the test!");
+      alert("You didn't answer any questions. Redirecting to home...");
+      navigate(PATHS.HOME);
       return;
     }
-    localStorage.removeItem(`quizState_${numericCategoryId}`);
+
     navigate(PATHS.RESULT, {
       state: { questions, userAnswers, categoryId: numericCategoryId, testId },
     });
   }, [navigate, questions, userAnswers, numericCategoryId, testId]);
 
+  // ✅ 3 değişiklik hakkı kuralı
   const handleAnswerSelect = (answer: string) => {
     const currentChanges = changeCounts[currentQuestionIndex] || 0;
     const currentAnswer = userAnswers[currentQuestionIndex];
+    if (currentAnswer === answer) return;
+
     if (currentChanges >= 3) {
       setShowAttemptModal(true);
       return;
     }
-    if (currentAnswer === answer) return;
+
     setUserAnswers((prev) => ({ ...prev, [currentQuestionIndex]: answer }));
     setChangeCounts((prev) => ({
       ...prev,
-      [currentQuestionIndex]: currentChanges + 1,
+      [currentQuestionIndex]: (prev[currentQuestionIndex] || 0) + 1,
     }));
   };
 
   const handleNext = () => {
-    if (questions && currentQuestionIndex < questions.length - 1) {
+    if (questions && currentQuestionIndex < questions.length - 1)
       setCurrentQuestionIndex((prev) => prev + 1);
-    }
   };
 
   const handlePrev = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((prev) => prev - 1);
-    }
+    if (currentQuestionIndex > 0) setCurrentQuestionIndex((prev) => prev - 1);
   };
 
-  if (isLoading || !isQuizInitialized) {
+  if (isLoading || !isQuizInitialized)
     return <LoadingSpinner text="Loading questions..." />;
-  }
 
-  if (isError || !questions || questions.length === 0) {
+  if (isError || !questions || questions.length === 0)
     return (
       <div className={styles.error}>
         Error: {error?.message || "Could not load questions."}
       </div>
     );
-  }
 
   const currentQuestion = questions[currentQuestionIndex];
   const currentAnswers = shuffledAnswers[currentQuestionIndex] || [];
@@ -155,7 +182,7 @@ const QuizPage = () => {
         title="Time's Up!"
         onClose={handleFinishTest}
       >
-        <p>Your time has expired. Your results will now be analyzed.</p>
+        <p>Your time has expired.</p>
       </Modal>
 
       <Modal
@@ -200,7 +227,7 @@ const QuizPage = () => {
               }`}
               onClick={() => handleAnswerSelect(answer)}
               disabled={
-                (changeCounts[currentQuestionIndex] || 0) >= 3 &&
+                (changeCounts[currentQuestionIndex] || 0) > 3 &&
                 userAnswers[currentQuestionIndex] !== answer
               }
             >
@@ -209,16 +236,19 @@ const QuizPage = () => {
           ))}
         </div>
 
-        {(changeCounts[currentQuestionIndex] || 0) >= 3 && (
+        {(changeCounts[currentQuestionIndex] || 0) > 3 && (
           <p className={styles["locked-warning"]}>
             🔒 You have used all your attempts for this question.
           </p>
         )}
       </div>
 
-      <div className={styles["navigation-buttons"]}>
+      <div className={styles["bottom-inline"]}>
         <button onClick={handlePrev} disabled={currentQuestionIndex === 0}>
           Previous
+        </button>
+        <button className={styles["finish-inline"]} onClick={handleFinishTest}>
+          Finish Test
         </button>
         <button
           onClick={handleNext}
@@ -228,12 +258,6 @@ const QuizPage = () => {
           }
         >
           Next
-        </button>
-      </div>
-
-      <div className={styles["finish-button-container"]}>
-        <button className={styles["finish-button"]} onClick={handleFinishTest}>
-          Finish Test
         </button>
       </div>
     </div>

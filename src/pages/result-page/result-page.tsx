@@ -38,6 +38,13 @@ const ResultPage = () => {
       },
     });
 
+  // ✅ Test tamamlandığında localStorage'daki quiz state'ini temizle
+  useEffect(() => {
+    if (categoryId) {
+      localStorage.removeItem(`quizState_${categoryId}`);
+    }
+  }, [categoryId]);
+
   useEffect(() => {
     const pageTitle = "Quiz Results - React Quiz App";
     const description =
@@ -47,7 +54,9 @@ const ResultPage = () => {
     document.title = pageTitle;
 
     const ensureMeta = (name: string, content: string, isProperty = false) => {
-      const selector = isProperty ? `meta[property='${name}']` : `meta[name='${name}']`;
+      const selector = isProperty
+        ? `meta[property='${name}']`
+        : `meta[name='${name}']`;
       let meta = document.querySelector(selector);
       if (!meta) {
         meta = document.createElement("meta");
