@@ -116,6 +116,44 @@ const QuizPage = () => {
     return () => window.removeEventListener("beforeunload", handleUnload);
   }, [timeLeft, numericCategoryId]);
 
+  const resetQuizSession = useCallback(
+    (markCompleted: boolean) => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      setTimerActive(false);
+      setIsQuizInitialized(false);
+      setLocalQuestions(null);
+      setShuffledAnswers([]);
+      setUserAnswers({});
+      setChangeCounts({});
+      setCurrentQuestionIndex(0);
+      setTimeLeft(0);
+
+      if (numericCategoryId !== null) {
+        localStorage.removeItem(`quizState_${numericCategoryId}`);
+        localStorage.removeItem(`quizId_${numericCategoryId}`);
+        if (markCompleted && quizCompletedKey) {
+          localStorage.setItem(quizCompletedKey, "true");
+        } else if (!markCompleted && quizCompletedKey) {
+          localStorage.removeItem(quizCompletedKey);
+        }
+      }
+    },
+    [
+      numericCategoryId,
+      quizCompletedKey,
+      setTimerActive,
+      setIsQuizInitialized,
+      setLocalQuestions,
+      setShuffledAnswers,
+      setUserAnswers,
+      setChangeCounts,
+      setCurrentQuestionIndex,
+      setTimeLeft,
+    ]
+  );
+
   const handleFinishTest = useCallback(() => {
     if (!questions) return;
     const answeredCount = Object.keys(userAnswers).length;
@@ -125,13 +163,7 @@ const QuizPage = () => {
       return;
     }
 
-    if (numericCategoryId) {
-      localStorage.removeItem(`quizState_${numericCategoryId}`);
-      localStorage.removeItem(`quizId_${numericCategoryId}`);
-      if (quizCompletedKey) {
-        localStorage.setItem(quizCompletedKey, "true");
-      }
-    }
+    resetQuizSession(true);
 
     navigate(PATHS.RESULT, {
       state: { questions, userAnswers, categoryId: numericCategoryId, testId },
@@ -142,13 +174,14 @@ const QuizPage = () => {
     userAnswers,
     numericCategoryId,
     testId,
-    quizCompletedKey,
+    resetQuizSession,
   ]);
 
   const handleNoAnswersClose = useCallback(() => {
     setShowNoAnswersModal(false);
+    resetQuizSession(false);
     navigate(PATHS.HOME);
-  }, [navigate]);
+  }, [navigate, resetQuizSession]);
 
   const handleAnswerSelect = (answer: string) => {
     const currentChanges = changeCounts[currentQuestionIndex] || 0;
