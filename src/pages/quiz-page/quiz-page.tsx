@@ -8,12 +8,15 @@ import he from "he";
 import type { Question } from "../../types";
 import Modal from "../../components/modal/modal";
 import { useQuizPersistence } from "../../hooks/use-quiz-persistence";
+import { STORAGE_KEYS } from "../../constants/storage-keys";
 
 const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 };
+
+const MAX_CHANGES_PER_QUESTION = 3;
 
 const QuizPage = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
@@ -44,12 +47,26 @@ const QuizPage = () => {
   const [showAttemptModal, setShowAttemptModal] = useState(false);
   const [showNoAnswersModal, setShowNoAnswersModal] = useState(false);
   const [testId, setTestId] = useState<string>("");
-  const quizCompletedKey =
-    numericCategoryId !== null ? `quizCompleted_${numericCategoryId}` : null;
+
+  const storedQuizState = localStorage.getItem(STORAGE_KEYS.QUIZ_STATE);
+  let hasStoredStateForCategory = false;
+  if (storedQuizState && numericCategoryId !== null) {
+    try {
+      const parsed = JSON.parse(storedQuizState);
+      hasStoredStateForCategory = parsed?.categoryId === numericCategoryId;
+    } catch {
+      localStorage.removeItem(STORAGE_KEYS.QUIZ_STATE);
+    }
+  }
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchCategoryId = retryQuestions ? null : numericCategoryId;
+  const shouldFetch =
+    !!numericCategoryId &&
+    !retryQuestions &&
+    (!hasStoredStateForCategory || !!refreshToken) &&
+    !localQuestions;
+  const fetchCategoryId = shouldFetch ? numericCategoryId : null;
 
   const {
     data: questionsFromApi,
@@ -78,6 +95,7 @@ const QuizPage = () => {
     timeLeft,
     questions,
     setTestId,
+    testId,
     shuffledAnswers,
     setShuffledAnswers,
   });
@@ -129,20 +147,14 @@ const QuizPage = () => {
       setChangeCounts({});
       setCurrentQuestionIndex(0);
       setTimeLeft(0);
+      setTestId("");
 
-      if (numericCategoryId !== null) {
-        localStorage.removeItem(`quizState_${numericCategoryId}`);
-        localStorage.removeItem(`quizId_${numericCategoryId}`);
-        if (markCompleted && quizCompletedKey) {
-          localStorage.setItem(quizCompletedKey, "true");
-        } else if (!markCompleted && quizCompletedKey) {
-          localStorage.removeItem(quizCompletedKey);
-        }
+      localStorage.removeItem(STORAGE_KEYS.QUIZ_STATE);
+      if (markCompleted) {
+        localStorage.removeItem(STORAGE_KEYS.QUIZ_ANALYSIS);
       }
     },
     [
-      numericCategoryId,
-      quizCompletedKey,
       setTimerActive,
       setIsQuizInitialized,
       setLocalQuestions,
@@ -151,6 +163,7 @@ const QuizPage = () => {
       setChangeCounts,
       setCurrentQuestionIndex,
       setTimeLeft,
+      setTestId,
     ]
   );
 
@@ -188,16 +201,20 @@ const QuizPage = () => {
     const currentAnswer = userAnswers[currentQuestionIndex];
     if (currentAnswer === answer) return;
 
-    if (currentChanges >= 3) {
+    const isFirstSelection = currentAnswer === undefined;
+
+    if (!isFirstSelection && currentChanges >= MAX_CHANGES_PER_QUESTION) {
       setShowAttemptModal(true);
       return;
     }
 
     setUserAnswers((prev) => ({ ...prev, [currentQuestionIndex]: answer }));
-    setChangeCounts((prev) => ({
-      ...prev,
-      [currentQuestionIndex]: (prev[currentQuestionIndex] || 0) + 1,
-    }));
+    setChangeCounts((prev) => {
+      const prevCount = prev[currentQuestionIndex] || 0;
+      const nextCount = isFirstSelection ? prevCount : prevCount + 1;
+      if (nextCount === prevCount) return prev;
+      return { ...prev, [currentQuestionIndex]: nextCount };
+    });
   };
 
   const handleNext = () => {
@@ -297,7 +314,8 @@ const QuizPage = () => {
               }`}
               onClick={() => handleAnswerSelect(answer)}
               disabled={
-                (changeCounts[currentQuestionIndex] || 0) >= 3 &&
+                (changeCounts[currentQuestionIndex] || 0) >=
+                  MAX_CHANGES_PER_QUESTION &&
                 userAnswers[currentQuestionIndex] !== answer
               }
             >
@@ -306,7 +324,8 @@ const QuizPage = () => {
           ))}
         </div>
 
-        {(changeCounts[currentQuestionIndex] || 0) >= 3 && (
+        {(changeCounts[currentQuestionIndex] || 0) >=
+          MAX_CHANGES_PER_QUESTION && (
           <p className={styles["locked-warning"]}>
             You have used all your attempts for this question.
           </p>

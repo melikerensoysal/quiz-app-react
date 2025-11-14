@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef } from "react";
 import type { Question } from "../types";
+import { STORAGE_KEYS } from "../constants/storage-keys";
 
 interface QuizPersistenceProps {
   categoryId: number | null;
@@ -21,6 +22,7 @@ interface QuizPersistenceProps {
   questions: Question[] | null | undefined;
 
   setTestId: (v: string) => void;
+  testId: string;
 
   shuffledAnswers: string[][];
   setShuffledAnswers: (v: string[][]) => void;
@@ -43,12 +45,11 @@ export const useQuizPersistence = ({
   timeLeft,
   questions,
   setTestId,
+  testId,
   shuffledAnswers,
   setShuffledAnswers,
 }: QuizPersistenceProps) => {
-  const quizKey = `quizState_${categoryId ?? "unknown"}`;
-  const quizIdKey = `quizId_${categoryId ?? "unknown"}`;
-  const quizCompletedKey = `quizCompleted_${categoryId ?? "unknown"}`;
+  const quizKey = STORAGE_KEYS.QUIZ_STATE;
   const timeLeftRef = useRef(timeLeft);
 
   useEffect(() => {
@@ -61,6 +62,7 @@ export const useQuizPersistence = ({
 
     const quizState = {
       categoryId,
+      testId,
       questions,
       userAnswers,
       changeCounts,
@@ -73,6 +75,7 @@ export const useQuizPersistence = ({
   }, [
     categoryId,
     questions,
+    testId,
     userAnswers,
     changeCounts,
     currentQuestionIndex,
@@ -81,34 +84,13 @@ export const useQuizPersistence = ({
     quizKey,
   ]);
 
-
-  useEffect(() => {
-    if (!isQuizInitialized || categoryId === null) return;
-
-    let id = localStorage.getItem(quizIdKey);
-
-    if (!id) {
-      id = `${quizIdKey}_${Date.now()}`;
-      localStorage.setItem(quizIdKey, id);
-    }
-
-    setTestId(id);
-  }, [isQuizInitialized, quizIdKey, setTestId, categoryId]);
-
-
   useEffect(() => {
     if (isQuizInitialized || categoryId === null) return;
-
-    const completedFlag = localStorage.getItem(quizCompletedKey);
-    if (completedFlag) {
-      localStorage.removeItem(quizKey);
-      localStorage.removeItem(quizIdKey);
-      localStorage.removeItem(quizCompletedKey);
-    }
 
     const saved = localStorage.getItem(quizKey);
     let parsed: {
       categoryId?: number | null;
+      testId?: string;
       questions?: Question[] | null;
       userAnswers?: Record<number, string>;
       changeCounts?: Record<number, number>;
@@ -126,6 +108,9 @@ export const useQuizPersistence = ({
     }
 
     if (parsed?.categoryId === categoryId) {
+      if (parsed.testId) {
+        setTestId(parsed.testId);
+      }
       setLocalQuestions(parsed.questions || null);
       setUserAnswers(parsed.userAnswers || {});
       setChangeCounts(parsed.changeCounts || {});
@@ -153,6 +138,9 @@ export const useQuizPersistence = ({
     }
 
     if (questionsFromApi && questionsFromApi.length > 0) {
+      const newTestId = `quiz_${categoryId}_${Date.now()}`;
+      setTestId(newTestId);
+
       const shuffled = questionsFromApi.map((q) =>
         [...q.incorrect_answers, q.correct_answer].sort(
           () => Math.random() - 0.5
@@ -182,8 +170,7 @@ export const useQuizPersistence = ({
     setIsQuizInitialized,
     setTimerActive,
     quizKey,
-    quizIdKey,
-    quizCompletedKey,
+    setTestId,
   ]);
 
 

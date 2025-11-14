@@ -7,6 +7,7 @@ import type { Question } from "../../types";
 import styles from "./result-page.module.scss";
 import { PATHS } from "../../constants/paths";
 import DOMPurify from "dompurify";
+import { STORAGE_KEYS } from "../../constants/storage-keys";
 
 const ResultPage = () => {
   const location = useLocation();
@@ -33,18 +34,15 @@ const ResultPage = () => {
       mutationFn: getQuizAnalysis,
       onSuccess: (data) => {
         if (testId) {
-          localStorage.setItem(`quizAnalysis_${testId}`, data);
+          const payload = JSON.stringify({ testId, analysis: data });
+          localStorage.setItem(STORAGE_KEYS.QUIZ_ANALYSIS, payload);
         }
       },
     });
 
   useEffect(() => {
-    if (categoryId) {
-      localStorage.removeItem(`quizState_${categoryId}`);
-      localStorage.removeItem(`quizId_${categoryId}`);
-      localStorage.removeItem(`quizCompleted_${categoryId}`);
-    }
-  }, [categoryId]);
+    localStorage.removeItem(STORAGE_KEYS.QUIZ_STATE);
+  }, []);
 
   useEffect(() => {
     const pageTitle = "Quiz Results - React Quiz App";
@@ -83,12 +81,20 @@ const ResultPage = () => {
       return;
     }
 
-    const cached = localStorage.getItem(`quizAnalysis_${testId}`);
+    const cached = localStorage.getItem(STORAGE_KEYS.QUIZ_ANALYSIS);
     if (cached) {
-      setCachedAnalysis(cached);
-    } else {
-      generateAnalysis({ questions, userAnswers });
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed?.testId === testId && typeof parsed.analysis === "string") {
+          setCachedAnalysis(parsed.analysis);
+          return;
+        }
+      } catch {
+        localStorage.removeItem(STORAGE_KEYS.QUIZ_ANALYSIS);
+      }
     }
+
+    generateAnalysis({ questions, userAnswers });
   }, [questions, userAnswers, testId, generateAnalysis, navigate]);
 
   if ((isPending && !cachedAnalysis) || (!analysis && !cachedAnalysis)) {
@@ -102,7 +108,10 @@ const ResultPage = () => {
           An error occurred while generating the analysis.
         </div>
         <button
-          onClick={() => navigate(PATHS.HOME)}
+          onClick={() => {
+            clearAnalysisCache();
+            navigate(PATHS.HOME);
+          }}
           className={styles["nav-button"]}
         >
           Home
@@ -125,8 +134,13 @@ const ResultPage = () => {
       .replace(/<\/ul><br \/><ul>/g, "")
   );
 
+  const clearAnalysisCache = () => {
+    localStorage.removeItem(STORAGE_KEYS.QUIZ_ANALYSIS);
+  };
+
   const handleRetrySameTest = () => {
     if (!questions || !categoryId) return;
+    clearAnalysisCache();
     navigate(PATHS.QUIZ.replace(":categoryId", categoryId!.toString()), {
       state: { questions, retry: true },
     });
@@ -134,6 +148,7 @@ const ResultPage = () => {
 
   const handleStartNewTest = () => {
     if (!categoryId) return;
+    clearAnalysisCache();
     navigate(PATHS.QUIZ.replace(":categoryId", categoryId!.toString()), {
       state: { refreshToken: Date.now() },
     });
