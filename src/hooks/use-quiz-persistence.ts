@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import type { Question } from "../types";
 
 interface QuizPersistenceProps {
@@ -49,6 +49,11 @@ export const useQuizPersistence = ({
   const quizKey = `quizState_${categoryId ?? "unknown"}`;
   const quizIdKey = `quizId_${categoryId ?? "unknown"}`;
   const quizCompletedKey = `quizCompleted_${categoryId ?? "unknown"}`;
+  const timeLeftRef = useRef(timeLeft);
+
+  useEffect(() => {
+    timeLeftRef.current = timeLeft;
+  }, [timeLeft]);
 
 
   const saveState = useCallback(() => {
@@ -61,7 +66,7 @@ export const useQuizPersistence = ({
       changeCounts,
       currentQuestionIndex,
       shuffledAnswers,
-      timeLeft,
+      timeLeft: timeLeftRef.current,
     };
 
     localStorage.setItem(quizKey, JSON.stringify(quizState));
@@ -72,7 +77,6 @@ export const useQuizPersistence = ({
     changeCounts,
     currentQuestionIndex,
     shuffledAnswers,
-    timeLeft,
     isQuizInitialized,
     quizKey,
   ]);
@@ -191,7 +195,6 @@ export const useQuizPersistence = ({
     changeCounts,
     currentQuestionIndex,
     shuffledAnswers,
-    timeLeft,
     isQuizInitialized,
     saveState,
   ]);
