@@ -38,10 +38,11 @@ const ResultPage = () => {
       },
     });
 
-  // ✅ Test tamamlandığında localStorage'daki quiz state'ini temizle
   useEffect(() => {
     if (categoryId) {
       localStorage.removeItem(`quizState_${categoryId}`);
+      localStorage.removeItem(`quizId_${categoryId}`);
+      localStorage.removeItem(`quizCompleted_${categoryId}`);
     }
   }, [categoryId]);
 

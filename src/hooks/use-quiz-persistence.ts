@@ -4,6 +4,7 @@ import type { Question } from "../types";
 interface QuizPersistenceProps {
   categoryId: number | null;
   questionsFromApi: Question[] | null | undefined;
+
   setLocalQuestions: (q: Question[] | null) => void;
   setUserAnswers: (v: Record<number, string>) => void;
   setChangeCounts: (v: Record<number, number>) => void;
@@ -11,15 +12,16 @@ interface QuizPersistenceProps {
   setTimeLeft: (v: number) => void;
   setIsQuizInitialized: (v: boolean) => void;
   setTimerActive: (v: boolean) => void;
-  setShowWarningModal: (v: boolean) => void;
-  setShowTimeUpModal: (v: boolean) => void;
+
   isQuizInitialized: boolean;
   userAnswers: Record<number, string>;
   changeCounts: Record<number, number>;
   currentQuestionIndex: number;
   timeLeft: number;
   questions: Question[] | null | undefined;
+
   setTestId: (v: string) => void;
+
   shuffledAnswers: string[][];
   setShuffledAnswers: (v: string[][]) => void;
 }
@@ -34,8 +36,6 @@ export const useQuizPersistence = ({
   setTimeLeft,
   setIsQuizInitialized,
   setTimerActive,
-  setShowWarningModal,
-  setShowTimeUpModal,
   isQuizInitialized,
   userAnswers,
   changeCounts,
@@ -46,78 +46,124 @@ export const useQuizPersistence = ({
   shuffledAnswers,
   setShuffledAnswers,
 }: QuizPersistenceProps) => {
-  const quizKey = `quizState_${categoryId}`;
-  const quizIdKey = `quizId_${categoryId}`;
+  const quizKey = `quizState_${categoryId ?? "unknown"}`;
+  const quizIdKey = `quizId_${categoryId ?? "unknown"}`;
+  const quizCompletedKey = `quizCompleted_${categoryId ?? "unknown"}`;
+
 
   const saveState = useCallback(() => {
-    if (!isQuizInitialized) return;
+    if (!isQuizInitialized || categoryId === null) return;
+
     const quizState = {
+      categoryId,
+      questions,
       userAnswers,
       changeCounts,
       currentQuestionIndex,
-      timeLeft,
-      categoryId,
-      questions,
       shuffledAnswers,
+      timeLeft,
     };
+
     localStorage.setItem(quizKey, JSON.stringify(quizState));
   }, [
+    categoryId,
+    questions,
     userAnswers,
     changeCounts,
     currentQuestionIndex,
-    timeLeft,
-    categoryId,
-    questions,
     shuffledAnswers,
+    timeLeft,
     isQuizInitialized,
+    quizKey,
   ]);
 
-  useEffect(() => {
-    if (!isQuizInitialized) return;
-    if (!localStorage.getItem(quizIdKey)) {
-      const id = `${quizIdKey}_${Date.now()}`;
-      localStorage.setItem(quizIdKey, id);
-      setTestId(id);
-    } else {
-      const existingId = localStorage.getItem(quizIdKey) || "";
-      setTestId(existingId);
-    }
-  }, [isQuizInitialized, quizIdKey, setTestId]);
 
   useEffect(() => {
-    if (isQuizInitialized) return;
+    if (!isQuizInitialized || categoryId === null) return;
+
+    let id = localStorage.getItem(quizIdKey);
+
+    if (!id) {
+      id = `${quizIdKey}_${Date.now()}`;
+      localStorage.setItem(quizIdKey, id);
+    }
+
+    setTestId(id);
+  }, [isQuizInitialized, quizIdKey, setTestId, categoryId]);
+
+
+  useEffect(() => {
+    if (isQuizInitialized || categoryId === null) return;
+
+    const completedFlag = localStorage.getItem(quizCompletedKey);
+    if (completedFlag) {
+      localStorage.removeItem(quizKey);
+      localStorage.removeItem(quizIdKey);
+      localStorage.removeItem(quizCompletedKey);
+    }
+
     const saved = localStorage.getItem(quizKey);
+    let parsed: {
+      categoryId?: number | null;
+      questions?: Question[] | null;
+      userAnswers?: Record<number, string>;
+      changeCounts?: Record<number, number>;
+      currentQuestionIndex?: number;
+      shuffledAnswers?: string[][];
+      timeLeft?: number;
+    } | null = null;
+
     if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && parsed.categoryId === categoryId) {
-        if (parsed.questions) setLocalQuestions(parsed.questions);
-        setUserAnswers(parsed.userAnswers || {});
-        setChangeCounts(parsed.changeCounts || {});
-        setCurrentQuestionIndex(parsed.currentQuestionIndex || 0);
-        setTimeLeft(parsed.timeLeft || 0);
-        setShuffledAnswers(parsed.shuffledAnswers || []);
-        setIsQuizInitialized(true);
-        setTimerActive(true);
-        setShowWarningModal(false);
-        setShowTimeUpModal(false);
-        return;
+      try {
+        parsed = JSON.parse(saved);
+      } catch {
+        localStorage.removeItem(quizKey);
       }
+    }
+
+    if (parsed?.categoryId === categoryId) {
+      setLocalQuestions(parsed.questions || null);
+      setUserAnswers(parsed.userAnswers || {});
+      setChangeCounts(parsed.changeCounts || {});
+      setCurrentQuestionIndex(parsed.currentQuestionIndex || 0);
+      setShuffledAnswers(parsed.shuffledAnswers || []);
+      const restoredTime =
+        typeof parsed.timeLeft === "number" ? parsed.timeLeft : 600;
+      setTimeLeft(restoredTime);
+
+      setIsQuizInitialized(true);
+      setTimerActive(true);
+      return;
+    }
+
+    if (questionsFromApi && questionsFromApi.length === 0) {
+      setLocalQuestions([]);
+      setShuffledAnswers([]);
+      setUserAnswers({});
+      setChangeCounts({});
+      setCurrentQuestionIndex(0);
+      setTimeLeft(0);
+      setIsQuizInitialized(true);
+      setTimerActive(false);
+      return;
     }
 
     if (questionsFromApi && questionsFromApi.length > 0) {
       const shuffled = questionsFromApi.map((q) =>
-        [...q.incorrect_answers, q.correct_answer].sort(() => Math.random() - 0.5)
+        [...q.incorrect_answers, q.correct_answer].sort(
+          () => Math.random() - 0.5
+        )
       );
-      setShuffledAnswers(shuffled);
+
       setLocalQuestions(questionsFromApi);
+      setShuffledAnswers(shuffled);
       setUserAnswers({});
       setChangeCounts({});
       setCurrentQuestionIndex(0);
-      setTimeLeft(questionsFromApi.length * 60);
+
+      setTimeLeft(600);
       setIsQuizInitialized(true);
       setTimerActive(true);
-      setShowWarningModal(false);
-      setShowTimeUpModal(false);
     }
   }, [
     isQuizInitialized,
@@ -127,30 +173,44 @@ export const useQuizPersistence = ({
     setUserAnswers,
     setChangeCounts,
     setCurrentQuestionIndex,
+    setShuffledAnswers,
     setTimeLeft,
     setIsQuizInitialized,
     setTimerActive,
-    setShowWarningModal,
-    setShowTimeUpModal,
-    setShuffledAnswers,
     quizKey,
+    quizIdKey,
+    quizCompletedKey,
   ]);
 
+
   useEffect(() => {
-    if (!isQuizInitialized) return;
+    if (!isQuizInitialized || categoryId === null) return;
     saveState();
-  }, [userAnswers, changeCounts, currentQuestionIndex, isQuizInitialized, saveState]);
+  }, [
+    userAnswers,
+    changeCounts,
+    currentQuestionIndex,
+    shuffledAnswers,
+    timeLeft,
+    isQuizInitialized,
+    saveState,
+  ]);
+
 
   useEffect(() => {
     if (!isQuizInitialized) return;
     const interval = setInterval(saveState, 30000);
     return () => clearInterval(interval);
-  }, [isQuizInitialized, saveState]);
+  }, [isQuizInitialized, saveState, categoryId]);
+
 
   useEffect(() => {
-    if (!isQuizInitialized) return;
+    if (!isQuizInitialized || categoryId === null) return;
+
     const handleBeforeUnload = () => saveState();
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isQuizInitialized, saveState]);
+
+    return () =>
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isQuizInitialized, saveState, categoryId]);
 };

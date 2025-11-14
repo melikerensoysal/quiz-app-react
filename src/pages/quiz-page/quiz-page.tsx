@@ -20,7 +20,16 @@ const QuizPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const numericCategoryId = categoryId ? Number(categoryId) : null;
-  const { refreshToken } = location.state || {};
+  const locationState = (location.state as {
+    refreshToken?: number;
+    retry?: boolean;
+    questions?: Question[];
+  }) || null;
+  const refreshToken = locationState?.refreshToken;
+  const retryQuestions =
+    locationState?.retry && Array.isArray(locationState?.questions)
+      ? (locationState.questions as Question[])
+      : null;
 
   const [localQuestions, setLocalQuestions] = useState<Question[] | null>(null);
   const [shuffledAnswers, setShuffledAnswers] = useState<string[][]>([]);
@@ -33,28 +42,28 @@ const QuizPage = () => {
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showTimeUpModal, setShowTimeUpModal] = useState(false);
   const [showAttemptModal, setShowAttemptModal] = useState(false);
+  const [showNoAnswersModal, setShowNoAnswersModal] = useState(false);
   const [testId, setTestId] = useState<string>("");
+  const quizCompletedKey =
+    numericCategoryId !== null ? `quizCompleted_${numericCategoryId}` : null;
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const shouldFetch =
-    (!localStorage.getItem(`quizState_${numericCategoryId}`) ||
-      !!refreshToken) &&
-    !localQuestions &&
-    !!numericCategoryId;
+  const fetchCategoryId = retryQuestions ? null : numericCategoryId;
 
   const {
     data: questionsFromApi,
     isLoading,
     isError,
     error,
-  } = useQuestions(shouldFetch ? numericCategoryId : null, refreshToken);
+  } = useQuestions(fetchCategoryId, refreshToken);
 
-  const questions = localQuestions || questionsFromApi;
+  const initialQuestions = retryQuestions ?? questionsFromApi;
+  const questions = localQuestions || initialQuestions;
 
   useQuizPersistence({
     categoryId: numericCategoryId,
-    questionsFromApi,
+    questionsFromApi: initialQuestions,
     setLocalQuestions,
     setUserAnswers,
     setChangeCounts,
@@ -62,8 +71,6 @@ const QuizPage = () => {
     setTimeLeft,
     setIsQuizInitialized,
     setTimerActive,
-    setShowWarningModal,
-    setShowTimeUpModal,
     isQuizInitialized,
     userAnswers,
     changeCounts,
@@ -75,7 +82,6 @@ const QuizPage = () => {
     setShuffledAnswers,
   });
 
-  // ✅ Optimize edilmiş timer kontrolü
   useEffect(() => {
     if (!timerActive) return;
     if (timerRef.current) clearInterval(timerRef.current);
@@ -98,7 +104,6 @@ const QuizPage = () => {
     };
   }, [timerActive]);
 
-  // ✅ Sayfa kapatılırken kalan süreyi kaydet
   useEffect(() => {
     const handleUnload = () => {
       if (numericCategoryId)
@@ -111,23 +116,40 @@ const QuizPage = () => {
     return () => window.removeEventListener("beforeunload", handleUnload);
   }, [timeLeft, numericCategoryId]);
 
-  // ✅ Süre bittiğinde kullanıcı hiç cevap vermemişse ana sayfaya dön
   const handleFinishTest = useCallback(() => {
     if (!questions) return;
     const answeredCount = Object.keys(userAnswers).length;
 
     if (answeredCount === 0) {
-      alert("You didn't answer any questions. Redirecting to home...");
-      navigate(PATHS.HOME);
+      setShowNoAnswersModal(true);
       return;
+    }
+
+    if (numericCategoryId) {
+      localStorage.removeItem(`quizState_${numericCategoryId}`);
+      localStorage.removeItem(`quizId_${numericCategoryId}`);
+      if (quizCompletedKey) {
+        localStorage.setItem(quizCompletedKey, "true");
+      }
     }
 
     navigate(PATHS.RESULT, {
       state: { questions, userAnswers, categoryId: numericCategoryId, testId },
     });
-  }, [navigate, questions, userAnswers, numericCategoryId, testId]);
+  }, [
+    navigate,
+    questions,
+    userAnswers,
+    numericCategoryId,
+    testId,
+    quizCompletedKey,
+  ]);
 
-  // ✅ 3 değişiklik hakkı kuralı
+  const handleNoAnswersClose = useCallback(() => {
+    setShowNoAnswersModal(false);
+    navigate(PATHS.HOME);
+  }, [navigate]);
+
   const handleAnswerSelect = (answer: string) => {
     const currentChanges = changeCounts[currentQuestionIndex] || 0;
     const currentAnswer = userAnswers[currentQuestionIndex];
@@ -154,13 +176,20 @@ const QuizPage = () => {
     if (currentQuestionIndex > 0) setCurrentQuestionIndex((prev) => prev - 1);
   };
 
-  if (isLoading || !isQuizInitialized)
-    return <LoadingSpinner text="Loading questions..." />;
-
-  if (isError || !questions || questions.length === 0)
+  if (isError)
     return (
       <div className={styles.error}>
         Error: {error?.message || "Could not load questions."}
+      </div>
+    );
+
+  if (isLoading || !isQuizInitialized)
+    return <LoadingSpinner text="Loading questions..." />;
+
+  if (!questions || questions.length === 0)
+    return (
+      <div className={styles.error}>
+        Error: No questions available for this category. Please try another.
       </div>
     );
 
@@ -191,6 +220,14 @@ const QuizPage = () => {
         onClose={() => setShowAttemptModal(false)}
       >
         <p>You have used all your attempts for this question!</p>
+      </Modal>
+
+      <Modal
+        show={showNoAnswersModal}
+        title="No Answers Submitted"
+        onClose={handleNoAnswersClose}
+      >
+        <p>You need to answer at least one question before finishing the test.</p>
       </Modal>
 
       <div className={styles["progress-header"]}>
@@ -227,7 +264,7 @@ const QuizPage = () => {
               }`}
               onClick={() => handleAnswerSelect(answer)}
               disabled={
-                (changeCounts[currentQuestionIndex] || 0) > 3 &&
+                (changeCounts[currentQuestionIndex] || 0) >= 3 &&
                 userAnswers[currentQuestionIndex] !== answer
               }
             >
@@ -236,9 +273,9 @@ const QuizPage = () => {
           ))}
         </div>
 
-        {(changeCounts[currentQuestionIndex] || 0) > 3 && (
+        {(changeCounts[currentQuestionIndex] || 0) >= 3 && (
           <p className={styles["locked-warning"]}>
-            🔒 You have used all your attempts for this question.
+            You have used all your attempts for this question.
           </p>
         )}
       </div>
