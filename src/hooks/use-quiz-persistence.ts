@@ -1,6 +1,6 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect } from "react";
 import type { Question } from "../types";
-import { STORAGE_KEYS } from "../constants/storage-keys";
+import { quizStorage, type QuizState } from "../services/quiz-storage";
 
 interface QuizPersistenceProps {
   categoryId: number | null;
@@ -28,6 +28,8 @@ interface QuizPersistenceProps {
   setShuffledAnswers: (v: string[][]) => void;
 }
 
+const DEFAULT_DURATION_SECONDS = 600;
+
 export const useQuizPersistence = ({
   categoryId,
   questionsFromApi,
@@ -49,77 +51,19 @@ export const useQuizPersistence = ({
   shuffledAnswers,
   setShuffledAnswers,
 }: QuizPersistenceProps) => {
-  const quizKey = STORAGE_KEYS.QUIZ_STATE;
-  const timeLeftRef = useRef(timeLeft);
-
-  useEffect(() => {
-    timeLeftRef.current = timeLeft;
-  }, [timeLeft]);
-
-
-  const saveState = useCallback(() => {
-    if (!isQuizInitialized || categoryId === null) return;
-
-    const quizState = {
-      categoryId,
-      testId,
-      questions,
-      userAnswers,
-      changeCounts,
-      currentQuestionIndex,
-      shuffledAnswers,
-      timeLeft: timeLeftRef.current,
-    };
-
-    localStorage.setItem(quizKey, JSON.stringify(quizState));
-  }, [
-    categoryId,
-    questions,
-    testId,
-    userAnswers,
-    changeCounts,
-    currentQuestionIndex,
-    shuffledAnswers,
-    isQuizInitialized,
-    quizKey,
-  ]);
-
   useEffect(() => {
     if (isQuizInitialized || categoryId === null) return;
 
-    const saved = localStorage.getItem(quizKey);
-    let parsed: {
-      categoryId?: number | null;
-      testId?: string;
-      questions?: Question[] | null;
-      userAnswers?: Record<number, string>;
-      changeCounts?: Record<number, number>;
-      currentQuestionIndex?: number;
-      shuffledAnswers?: string[][];
-      timeLeft?: number;
-    } | null = null;
+    const saved = quizStorage.loadState();
 
-    if (saved) {
-      try {
-        parsed = JSON.parse(saved);
-      } catch {
-        localStorage.removeItem(quizKey);
-      }
-    }
-
-    if (parsed?.categoryId === categoryId) {
-      if (parsed.testId) {
-        setTestId(parsed.testId);
-      }
-      setLocalQuestions(parsed.questions || null);
-      setUserAnswers(parsed.userAnswers || {});
-      setChangeCounts(parsed.changeCounts || {});
-      setCurrentQuestionIndex(parsed.currentQuestionIndex || 0);
-      setShuffledAnswers(parsed.shuffledAnswers || []);
-      const restoredTime =
-        typeof parsed.timeLeft === "number" ? parsed.timeLeft : 600;
-      setTimeLeft(restoredTime);
-
+    if (saved && saved.categoryId === categoryId) {
+      setTestId(saved.testId);
+      setLocalQuestions(saved.questions);
+      setShuffledAnswers(saved.shuffledAnswers);
+      setUserAnswers(saved.userAnswers);
+      setChangeCounts(saved.changeCounts);
+      setCurrentQuestionIndex(saved.currentQuestionIndex);
+      setTimeLeft(saved.timeLeft);
       setIsQuizInitialized(true);
       setTimerActive(true);
       return;
@@ -139,28 +83,26 @@ export const useQuizPersistence = ({
 
     if (questionsFromApi && questionsFromApi.length > 0) {
       const newTestId = `quiz_${categoryId}_${Date.now()}`;
-      setTestId(newTestId);
-
       const shuffled = questionsFromApi.map((q) =>
         [...q.incorrect_answers, q.correct_answer].sort(
           () => Math.random() - 0.5
         )
       );
 
+      setTestId(newTestId);
       setLocalQuestions(questionsFromApi);
       setShuffledAnswers(shuffled);
       setUserAnswers({});
       setChangeCounts({});
       setCurrentQuestionIndex(0);
-
-      setTimeLeft(600);
+      setTimeLeft(DEFAULT_DURATION_SECONDS);
       setIsQuizInitialized(true);
       setTimerActive(true);
     }
   }, [
     isQuizInitialized,
-    questionsFromApi,
     categoryId,
+    questionsFromApi,
     setLocalQuestions,
     setUserAnswers,
     setChangeCounts,
@@ -169,38 +111,35 @@ export const useQuizPersistence = ({
     setTimeLeft,
     setIsQuizInitialized,
     setTimerActive,
-    quizKey,
     setTestId,
   ]);
 
-
   useEffect(() => {
-    if (!isQuizInitialized || categoryId === null) return;
-    saveState();
+    if (!isQuizInitialized) return;
+    if (categoryId === null) return;
+    if (!questions || questions.length === 0) return;
+
+    const state: QuizState = {
+      testId,
+      categoryId,
+      questions,
+      shuffledAnswers,
+      userAnswers,
+      changeCounts,
+      currentQuestionIndex,
+      timeLeft,
+    };
+
+    quizStorage.saveState(state);
   }, [
+    isQuizInitialized,
+    categoryId,
+    questions,
+    shuffledAnswers,
     userAnswers,
     changeCounts,
     currentQuestionIndex,
-    shuffledAnswers,
-    isQuizInitialized,
-    saveState,
+    timeLeft,
+    testId,
   ]);
-
-
-  useEffect(() => {
-    if (!isQuizInitialized) return;
-    const interval = setInterval(saveState, 30000);
-    return () => clearInterval(interval);
-  }, [isQuizInitialized, saveState, categoryId]);
-
-
-  useEffect(() => {
-    if (!isQuizInitialized || categoryId === null) return;
-
-    const handleBeforeUnload = () => saveState();
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () =>
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isQuizInitialized, saveState, categoryId]);
 };

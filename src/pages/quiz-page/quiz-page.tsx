@@ -8,7 +8,7 @@ import he from "he";
 import type { Question } from "../../types";
 import Modal from "../../components/modal/modal";
 import { useQuizPersistence } from "../../hooks/use-quiz-persistence";
-import { STORAGE_KEYS } from "../../constants/storage-keys";
+import { quizStorage } from "../../services/quiz-storage";
 
 const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
@@ -22,12 +22,14 @@ const QuizPage = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+
   const numericCategoryId = categoryId ? Number(categoryId) : null;
   const locationState = (location.state as {
     refreshToken?: number;
     retry?: boolean;
     questions?: Question[];
   }) || null;
+
   const refreshToken = locationState?.refreshToken;
   const retryQuestions =
     locationState?.retry && Array.isArray(locationState?.questions)
@@ -48,35 +50,17 @@ const QuizPage = () => {
   const [showNoAnswersModal, setShowNoAnswersModal] = useState(false);
   const [testId, setTestId] = useState<string>("");
 
-  const storedQuizState = localStorage.getItem(STORAGE_KEYS.QUIZ_STATE);
-  let hasStoredStateForCategory = false;
-  if (storedQuizState && numericCategoryId !== null) {
-    try {
-      const parsed = JSON.parse(storedQuizState);
-      hasStoredStateForCategory = parsed?.categoryId === numericCategoryId;
-    } catch {
-      localStorage.removeItem(STORAGE_KEYS.QUIZ_STATE);
-    }
-  }
-
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const shouldFetch =
-    !!numericCategoryId &&
-    !retryQuestions &&
-    (!hasStoredStateForCategory || !!refreshToken) &&
-    !localQuestions;
-  const fetchCategoryId = shouldFetch ? numericCategoryId : null;
 
   const {
     data: questionsFromApi,
     isLoading,
     isError,
     error,
-  } = useQuestions(fetchCategoryId, refreshToken);
+  } = useQuestions(numericCategoryId, refreshToken);
 
-  const initialQuestions = retryQuestions ?? questionsFromApi;
-  const questions = localQuestions || initialQuestions;
+  const initialQuestions = retryQuestions ?? questionsFromApi ?? null;
+  const questions = localQuestions || initialQuestions || null;
 
   useQuizPersistence({
     categoryId: numericCategoryId,
@@ -112,7 +96,6 @@ const QuizPage = () => {
           return 0;
         }
         const updated = prev - 1;
-        if (updated === 60 && !showWarningModal) setShowWarningModal(true);
         return updated;
       });
     }, 1000);
@@ -123,16 +106,10 @@ const QuizPage = () => {
   }, [timerActive]);
 
   useEffect(() => {
-    const handleUnload = () => {
-      if (numericCategoryId)
-        localStorage.setItem(
-          `quizTime_${numericCategoryId}`,
-          JSON.stringify(timeLeft)
-        );
-    };
-    window.addEventListener("beforeunload", handleUnload);
-    return () => window.removeEventListener("beforeunload", handleUnload);
-  }, [timeLeft, numericCategoryId]);
+    if (timeLeft === 60) {
+      setShowWarningModal(true);
+    }
+  }, [timeLeft]);
 
   const resetQuizSession = useCallback(
     (markCompleted: boolean) => {
@@ -148,10 +125,9 @@ const QuizPage = () => {
       setCurrentQuestionIndex(0);
       setTimeLeft(0);
       setTestId("");
-
-      localStorage.removeItem(STORAGE_KEYS.QUIZ_STATE);
+      quizStorage.clearState();
       if (markCompleted) {
-        localStorage.removeItem(STORAGE_KEYS.QUIZ_ANALYSIS);
+        quizStorage.clearAnalysis();
       }
     },
     [
@@ -233,8 +209,12 @@ const QuizPage = () => {
       </div>
     );
 
-  if (isLoading || !isQuizInitialized)
-    return <LoadingSpinner text="Loading questions..." />;
+  if (!isQuizInitialized || !questions) {
+    if (isLoading) {
+      return <LoadingSpinner text="Loading questions..." />;
+    }
+    return <LoadingSpinner text="Preparing quiz..." />;
+  }
 
   if (!questions || questions.length === 0)
     return (
