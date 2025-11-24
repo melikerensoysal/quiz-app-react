@@ -21,11 +21,20 @@ export const fetchCategories = async (): Promise<Category[]> => {
 };
 
 export const fetchQuestions = async (
-  categoryId: number
+  categoryId: number,
+  amount: number,
+  difficulty?: string,
+  type?: string
 ): Promise<Question[]> => {
-  const amount = 10;
+  const params = new URLSearchParams();
+  params.append("amount", String(amount));
+  params.append("category", String(categoryId));
+
+  if (difficulty) params.append("difficulty", difficulty);
+  if (type) params.append("type", type);
+
   const response = await apiClient.get<{ results: Question[] }>(
-    `/api.php?amount=${amount}&category=${categoryId}&type=multiple`
+    `/api.php?${params.toString()}`
   );
 
   return response.data.results.map((question) => ({

@@ -51,6 +51,7 @@ export const useQuizPersistence = ({
   shuffledAnswers,
   setShuffledAnswers,
 }: QuizPersistenceProps) => {
+
   useEffect(() => {
     if (isQuizInitialized || categoryId === null) return;
 
@@ -83,7 +84,7 @@ export const useQuizPersistence = ({
 
     if (questionsFromApi && questionsFromApi.length > 0) {
       const newTestId = `quiz_${categoryId}_${Date.now()}`;
-      const shuffled = questionsFromApi.map((q) =>
+      const shuffled = questionsFromApi.map(q =>
         [...q.incorrect_answers, q.correct_answer].sort(
           () => Math.random() - 0.5
         )
@@ -139,7 +140,57 @@ export const useQuizPersistence = ({
     userAnswers,
     changeCounts,
     currentQuestionIndex,
+    testId,
+  ]);
+
+  useEffect(() => {
+    if (!isQuizInitialized) return;
+    if (categoryId === null) return;
+    if (!questions || questions.length === 0) return;
+
+    const interval = setInterval(() => {
+      const state: QuizState = {
+        testId,
+        categoryId,
+        questions: questions!,
+        shuffledAnswers,
+        userAnswers,
+        changeCounts,
+        currentQuestionIndex,
+        timeLeft,
+      };
+      quizStorage.saveState(state);
+    }, 30000);
+
+    const handleBeforeUnload = () => {
+      const state: QuizState = {
+        testId,
+        categoryId: categoryId!,
+        questions: questions!,
+        shuffledAnswers,
+        userAnswers,
+        changeCounts,
+        currentQuestionIndex,
+        timeLeft,
+      };
+      quizStorage.saveState(state);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [
+    isQuizInitialized,
     timeLeft,
     testId,
+    categoryId,
+    questions,
+    shuffledAnswers,
+    userAnswers,
+    changeCounts,
+    currentQuestionIndex,
   ]);
 };

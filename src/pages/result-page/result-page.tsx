@@ -13,32 +13,45 @@ const ResultPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const state = location.state as {
-    questions: Question[];
-    userAnswers: Record<number, string>;
-    categoryId: number;
-    testId: string;
-  } | null;
+  const state =
+    (location.state as {
+      questions?: Question[];
+      userAnswers?: Record<number, string>;
+      categoryId?: number;
+      testId?: string;
+      amount?: number;
+      difficulty?: string;
+      type?: string;
+      changeCounts?: Record<number, number>;
+    }) || {};
 
-  const { questions, userAnswers, categoryId, testId } = state || {
-    questions: null,
-    userAnswers: null,
-    categoryId: null,
-    testId: "",
-  };
+  const {
+    questions = [],
+    userAnswers = {},
+    categoryId = null,
+    testId = "",
+    amount = undefined,
+    difficulty = undefined,
+    type = undefined,
+    changeCounts = {},
+  } = state;
 
   const [cachedAnalysis, setCachedAnalysis] = useState<string | null>(null);
 
-  const { mutate: generateAnalysis, data: analysis, isPending, isError } =
-    useMutation({
-      mutationFn: getQuizAnalysis,
-      onSuccess: (data) => {
-        if (testId) {
-          const payload = JSON.stringify({ testId, analysis: data });
-          localStorage.setItem(STORAGE_KEYS.QUIZ_ANALYSIS, payload);
-        }
-      },
-    });
+  const {
+    mutate: generateAnalysis,
+    data: analysis,
+    isPending,
+    isError,
+  } = useMutation({
+    mutationFn: getQuizAnalysis,
+    onSuccess: (data) => {
+      if (testId) {
+        const payload = JSON.stringify({ testId, analysis: data });
+        localStorage.setItem(STORAGE_KEYS.QUIZ_ANALYSIS, payload);
+      }
+    },
+  });
 
   useEffect(() => {
     localStorage.removeItem(STORAGE_KEYS.QUIZ_STATE);
@@ -76,10 +89,15 @@ const ResultPage = () => {
   }, []);
 
   useEffect(() => {
-    if (!questions || !userAnswers || !testId) {
+    if (!questions || !userAnswers || !testId || !categoryId) {
       navigate(PATHS.HOME);
       return;
     }
+
+    const safeAmount = amount ?? questions.length;
+    const safeDifficulty = difficulty ?? "unknown";
+    const safeType = type ?? "multiple";
+    const safeChangeCounts = changeCounts ?? {};
 
     const cached = localStorage.getItem(STORAGE_KEYS.QUIZ_ANALYSIS);
     if (cached) {
@@ -94,12 +112,36 @@ const ResultPage = () => {
       }
     }
 
-    generateAnalysis({ questions, userAnswers });
-  }, [questions, userAnswers, testId, generateAnalysis, navigate]);
+    generateAnalysis({
+      questions,
+      userAnswers,
+      categoryId,
+      testId,
+      amount: safeAmount,
+      difficulty: safeDifficulty,
+      type: safeType,
+      changeCounts: safeChangeCounts,
+    });
+  }, [
+    questions,
+    userAnswers,
+    testId,
+    categoryId,
+    amount,
+    difficulty,
+    type,
+    changeCounts,
+    generateAnalysis,
+    navigate,
+  ]);
 
   if ((isPending && !cachedAnalysis) || (!analysis && !cachedAnalysis)) {
     return <LoadingSpinner text="AI is analyzing your results..." />;
   }
+
+  const clearAnalysisCache = () => {
+    localStorage.removeItem(STORAGE_KEYS.QUIZ_ANALYSIS);
+  };
 
   if (isError) {
     return (
@@ -134,23 +176,34 @@ const ResultPage = () => {
       .replace(/<\/ul><br \/><ul>/g, "")
   );
 
-  const clearAnalysisCache = () => {
-    localStorage.removeItem(STORAGE_KEYS.QUIZ_ANALYSIS);
-  };
+  const safeAmount = amount ?? questions.length;
+  const safeDifficulty = difficulty ?? "unknown";
+  const safeType = type ?? "multiple";
 
   const handleRetrySameTest = () => {
     if (!questions || !categoryId) return;
     clearAnalysisCache();
-    navigate(PATHS.QUIZ.replace(":categoryId", categoryId!.toString()), {
-      state: { questions, retry: true },
+    navigate(PATHS.QUIZ.replace(":categoryId", categoryId.toString()), {
+      state: {
+        questions,
+        retry: true,
+        amount: safeAmount,
+        difficulty: safeDifficulty,
+        type: safeType,
+      },
     });
   };
 
   const handleStartNewTest = () => {
     if (!categoryId) return;
     clearAnalysisCache();
-    navigate(PATHS.QUIZ.replace(":categoryId", categoryId!.toString()), {
-      state: { refreshToken: Date.now() },
+    navigate(PATHS.QUIZ.replace(":categoryId", categoryId.toString()), {
+      state: {
+        refreshToken: Date.now(),
+        amount: safeAmount,
+        difficulty: safeDifficulty,
+        type: safeType,
+      },
     });
   };
 

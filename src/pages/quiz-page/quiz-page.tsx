@@ -16,7 +16,7 @@ const formatTime = (seconds: number): string => {
   return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 };
 
-const MAX_CHANGES_PER_QUESTION = 3;
+const MAX_ATTEMPTS_PER_QUESTION = 3;
 
 const QuizPage = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
@@ -24,15 +24,23 @@ const QuizPage = () => {
   const location = useLocation();
 
   const numericCategoryId = categoryId ? Number(categoryId) : null;
+
   const locationState = (location.state as {
+    amount?: number;
+    difficulty?: string;
+    type?: string;
     refreshToken?: number;
     retry?: boolean;
     questions?: Question[];
-  }) || null;
+  }) || {};
 
-  const refreshToken = locationState?.refreshToken;
+  const amount = locationState.amount ?? 10;
+  const difficulty = locationState.difficulty ?? "easy";
+  const type = locationState.type ?? "multiple";
+  const refreshToken = locationState.refreshToken;
+
   const retryQuestions =
-    locationState?.retry && Array.isArray(locationState?.questions)
+    locationState.retry && Array.isArray(locationState.questions)
       ? (locationState.questions as Question[])
       : null;
 
@@ -42,6 +50,7 @@ const QuizPage = () => {
   const [changeCounts, setChangeCounts] = useState<Record<number, number>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [persistedTimeLeft, setPersistedTimeLeft] = useState<number | null>(null);
   const [isQuizInitialized, setIsQuizInitialized] = useState(false);
   const [timerActive, setTimerActive] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
@@ -57,10 +66,36 @@ const QuizPage = () => {
     isLoading,
     isError,
     error,
-  } = useQuestions(numericCategoryId, refreshToken);
+  } = useQuestions(numericCategoryId, amount, difficulty, type, refreshToken);
 
   const initialQuestions = retryQuestions ?? questionsFromApi ?? null;
   const questions = localQuestions || initialQuestions || null;
+
+  useEffect(() => {
+    if (!isQuizInitialized) return;
+
+    setPersistedTimeLeft((prev) => {
+      if (!timerActive) {
+        return prev === null ? timeLeft : prev;
+      }
+
+      if (prev === null) {
+        return timeLeft;
+      }
+
+      const shouldPersist =
+        timeLeft === 0 ||
+        timeLeft === 60 ||
+        timeLeft % 30 === 0 ||
+        Math.abs(timeLeft - prev) >= 30;
+
+      if (shouldPersist && timeLeft !== prev) {
+        return timeLeft;
+      }
+
+      return prev;
+    });
+  }, [timeLeft, isQuizInitialized, timerActive]);
 
   useQuizPersistence({
     categoryId: numericCategoryId,
@@ -76,7 +111,7 @@ const QuizPage = () => {
     userAnswers,
     changeCounts,
     currentQuestionIndex,
-    timeLeft,
+    timeLeft: persistedTimeLeft ?? timeLeft,
     questions,
     setTestId,
     testId,
@@ -95,8 +130,7 @@ const QuizPage = () => {
           setShowTimeUpModal(true);
           return 0;
         }
-        const updated = prev - 1;
-        return updated;
+        return prev - 1;
       });
     }, 1000);
 
@@ -111,51 +145,43 @@ const QuizPage = () => {
     }
   }, [timeLeft]);
 
-  const resetQuizSession = useCallback(
-    (markCompleted: boolean) => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      setTimerActive(false);
-      setIsQuizInitialized(false);
-      setLocalQuestions(null);
-      setShuffledAnswers([]);
-      setUserAnswers({});
-      setChangeCounts({});
-      setCurrentQuestionIndex(0);
-      setTimeLeft(0);
-      setTestId("");
-      quizStorage.clearState();
-      if (markCompleted) {
-        quizStorage.clearAnalysis();
-      }
-    },
-    [
-      setTimerActive,
-      setIsQuizInitialized,
-      setLocalQuestions,
-      setShuffledAnswers,
-      setUserAnswers,
-      setChangeCounts,
-      setCurrentQuestionIndex,
-      setTimeLeft,
-      setTestId,
-    ]
-  );
+  const resetQuizSession = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setTimerActive(false);
+    setIsQuizInitialized(false);
+    setLocalQuestions(null);
+    setShuffledAnswers([]);
+    setUserAnswers({});
+    setChangeCounts({});
+    setCurrentQuestionIndex(0);
+    setTimeLeft(0);
+    setPersistedTimeLeft(null);
+    setTestId("");
+    quizStorage.clearState();
+    quizStorage.clearAnalysis();
+  }, []);
 
   const handleFinishTest = useCallback(() => {
     if (!questions) return;
-    const answeredCount = Object.keys(userAnswers).length;
 
-    if (answeredCount === 0) {
+    if (Object.keys(userAnswers).length === 0) {
       setShowNoAnswersModal(true);
       return;
     }
 
-    resetQuizSession(true);
+    resetQuizSession();
 
     navigate(PATHS.RESULT, {
-      state: { questions, userAnswers, categoryId: numericCategoryId, testId },
+      state: {
+        questions,
+        userAnswers,
+        categoryId: numericCategoryId,
+        testId,
+        amount,
+        difficulty,
+        type,
+        changeCounts,
+      },
     });
   }, [
     navigate,
@@ -163,43 +189,47 @@ const QuizPage = () => {
     userAnswers,
     numericCategoryId,
     testId,
+    amount,
+    difficulty,
+    type,
+    changeCounts,
     resetQuizSession,
   ]);
 
   const handleNoAnswersClose = useCallback(() => {
     setShowNoAnswersModal(false);
-    resetQuizSession(false);
+    resetQuizSession();
     navigate(PATHS.HOME);
   }, [navigate, resetQuizSession]);
 
   const handleAnswerSelect = (answer: string) => {
-    const currentChanges = changeCounts[currentQuestionIndex] || 0;
+    const currentAttempts = changeCounts[currentQuestionIndex] || 0;
     const currentAnswer = userAnswers[currentQuestionIndex];
+
     if (currentAnswer === answer) return;
 
-    const isFirstSelection = currentAnswer === undefined;
-
-    if (!isFirstSelection && currentChanges >= MAX_CHANGES_PER_QUESTION) {
+    if (currentAttempts >= MAX_ATTEMPTS_PER_QUESTION) {
       setShowAttemptModal(true);
       return;
     }
 
     setUserAnswers((prev) => ({ ...prev, [currentQuestionIndex]: answer }));
-    setChangeCounts((prev) => {
-      const prevCount = prev[currentQuestionIndex] || 0;
-      const nextCount = isFirstSelection ? prevCount : prevCount + 1;
-      if (nextCount === prevCount) return prev;
-      return { ...prev, [currentQuestionIndex]: nextCount };
-    });
+    setChangeCounts((prev) => ({
+      ...prev,
+      [currentQuestionIndex]: currentAttempts + 1,
+    }));
   };
 
   const handleNext = () => {
-    if (questions && currentQuestionIndex < questions.length - 1)
+    if (questions && currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
+    }
   };
 
   const handlePrev = () => {
-    if (currentQuestionIndex > 0) setCurrentQuestionIndex((prev) => prev - 1);
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex((prev) => prev - 1);
+    }
   };
 
   if (isError)
@@ -210,16 +240,17 @@ const QuizPage = () => {
     );
 
   if (!isQuizInitialized || !questions) {
-    if (isLoading) {
-      return <LoadingSpinner text="Loading questions..." />;
-    }
-    return <LoadingSpinner text="Preparing quiz..." />;
+    return (
+      <LoadingSpinner
+        text={isLoading ? "Loading questions..." : "Preparing quiz..."}
+      />
+    );
   }
 
-  if (!questions || questions.length === 0)
+  if (questions.length === 0)
     return (
       <div className={styles.error}>
-        Error: No questions available for this category. Please try another.
+        Error: No questions found. Try another configuration.
       </div>
     );
 
@@ -236,11 +267,7 @@ const QuizPage = () => {
         <p>You have 1 minute left to complete the quiz!</p>
       </Modal>
 
-      <Modal
-        show={showTimeUpModal}
-        title="Time's Up!"
-        onClose={handleFinishTest}
-      >
+      <Modal show={showTimeUpModal} title="Time's Up!" onClose={handleFinishTest}>
         <p>Your time has expired.</p>
       </Modal>
 
@@ -257,22 +284,24 @@ const QuizPage = () => {
         title="No Answers Submitted"
         onClose={handleNoAnswersClose}
       >
-        <p>You need to answer at least one question before finishing the test.</p>
+        <p>You need to answer at least one question before finishing.</p>
       </Modal>
 
       <div className={styles["progress-header"]}>
         <span className={styles["category-name"]}>
           {he.decode(currentQuestion.category)}
         </span>
+
         <span
           className={styles["timer"]}
           style={{
             color: timeLeft <= 60 ? "#e74c3c" : "#3498db",
-            transition: "color 0.5s ease-in-out",
+            transition: "color 0.5s",
           }}
         >
           {formatTime(timeLeft)}
         </span>
+
         <span className={styles["progress-counter"]}>
           Question {currentQuestionIndex + 1} / {questions.length}
         </span>
@@ -295,7 +324,7 @@ const QuizPage = () => {
               onClick={() => handleAnswerSelect(answer)}
               disabled={
                 (changeCounts[currentQuestionIndex] || 0) >=
-                  MAX_CHANGES_PER_QUESTION &&
+                  MAX_ATTEMPTS_PER_QUESTION &&
                 userAnswers[currentQuestionIndex] !== answer
               }
             >
@@ -305,9 +334,9 @@ const QuizPage = () => {
         </div>
 
         {(changeCounts[currentQuestionIndex] || 0) >=
-          MAX_CHANGES_PER_QUESTION && (
+          MAX_ATTEMPTS_PER_QUESTION && (
           <p className={styles["locked-warning"]}>
-            You have used all your attempts for this question.
+            You have used all your attempts.
           </p>
         )}
       </div>
@@ -316,9 +345,11 @@ const QuizPage = () => {
         <button onClick={handlePrev} disabled={currentQuestionIndex === 0}>
           Previous
         </button>
+
         <button className={styles["finish-inline"]} onClick={handleFinishTest}>
           Finish Test
         </button>
+
         <button
           onClick={handleNext}
           disabled={

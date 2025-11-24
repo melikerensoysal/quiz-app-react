@@ -45,8 +45,7 @@ export const quizStorage = {
   saveState(state: QuizState): void {
     try {
       localStorage.setItem(QUIZ_STATE_KEY, JSON.stringify(state));
-    } catch {
-    }
+    } catch {}
   },
 
   clearState(): void {
@@ -66,11 +65,10 @@ export const quizStorage = {
   saveAnalysis(analysis: QuizAnalysis): void {
     try {
       localStorage.setItem(QUIZ_ANALYSIS_KEY, JSON.stringify(analysis));
-    } catch {
-    }
+    } catch {}
   },
 
   clearAnalysis(): void {
     localStorage.removeItem(QUIZ_ANALYSIS_KEY);
-  },
+  }
 };
