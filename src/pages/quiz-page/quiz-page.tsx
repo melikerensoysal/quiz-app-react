@@ -61,6 +61,7 @@ const QuizPage = () => {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // API CALL
   const {
     data: questionsFromApi,
     isLoading,
@@ -71,6 +72,7 @@ const QuizPage = () => {
   const initialQuestions = retryQuestions ?? questionsFromApi ?? null;
   const questions = localQuestions || initialQuestions || null;
 
+  // Persistence throttling
   useEffect(() => {
     if (!isQuizInitialized) return;
 
@@ -79,9 +81,7 @@ const QuizPage = () => {
         return prev === null ? timeLeft : prev;
       }
 
-      if (prev === null) {
-        return timeLeft;
-      }
+      if (prev === null) return timeLeft;
 
       const shouldPersist =
         timeLeft === 0 ||
@@ -89,14 +89,13 @@ const QuizPage = () => {
         timeLeft % 30 === 0 ||
         Math.abs(timeLeft - prev) >= 30;
 
-      if (shouldPersist && timeLeft !== prev) {
-        return timeLeft;
-      }
+      if (shouldPersist && timeLeft !== prev) return timeLeft;
 
       return prev;
     });
   }, [timeLeft, isQuizInitialized, timerActive]);
 
+  // Persistence restore
   useQuizPersistence({
     categoryId: numericCategoryId,
     questionsFromApi: initialQuestions,
@@ -120,33 +119,37 @@ const QuizPage = () => {
   });
 
   useEffect(() => {
-    if (!timerActive) return;
-    if (timerRef.current) clearInterval(timerRef.current);
+  if (!timerActive) {
+    return; // ✔ cleanup function dönmüyoruz ama void return ediyor, sıkıntı yok
+  }
 
-    timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current!);
-          setShowTimeUpModal(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+  if (timerRef.current) {
+    clearInterval(timerRef.current);
+  }
 
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [timerActive]);
+  timerRef.current = setInterval(() => {
+    setTimeLeft((prev) => {
+      if (prev <= 1) {
+        clearInterval(timerRef.current!);
+        setShowTimeUpModal(true);
+        return 0;
+      }
+      return prev - 1;
+    });
+  }, 1000);
 
-  useEffect(() => {
-    if (timeLeft === 60) {
-      setShowWarningModal(true);
+  return () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
     }
+  };
+}, [timerActive]);
+  useEffect(() => {
+    if (timeLeft === 60) setShowWarningModal(true);
   }, [timeLeft]);
 
   const resetQuizSession = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current && clearInterval(timerRef.current);
     setTimerActive(false);
     setIsQuizInitialized(false);
     setLocalQuestions(null);
@@ -232,6 +235,7 @@ const QuizPage = () => {
     }
   };
 
+  // ERROR STATE
   if (isError)
     return (
       <div className={styles.error}>
@@ -239,6 +243,7 @@ const QuizPage = () => {
       </div>
     );
 
+  // Loading
   if (!isQuizInitialized || !questions) {
     return (
       <LoadingSpinner
@@ -247,10 +252,13 @@ const QuizPage = () => {
     );
   }
 
+  // ❗ BOOLEAN DESTEKLEMEYEN KATEGORİ (429 fix)
   if (questions.length === 0)
     return (
       <div className={styles.error}>
-        Error: No questions found. Try another configuration.
+        This category does not support the selected question type.
+        <br />
+        Please choose another type or category.
       </div>
     );
 

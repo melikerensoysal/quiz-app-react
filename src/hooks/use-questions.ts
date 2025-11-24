@@ -27,21 +27,6 @@ export const useQuestions = (
         type
       );
 
-      if (primary.length === 0 && type === "boolean") {
-        console.warn(
-          "No boolean questions found. Falling back to multiple-choice."
-        );
-
-        const fallback = await fetchQuestionsFromApi(
-          categoryId!,
-          amount,
-          difficulty,
-          "multiple"
-        );
-
-        return fallback;
-      }
-
       return primary;
     },
     enabled: !!categoryId && !!amount,
