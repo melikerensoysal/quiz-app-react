@@ -1,10 +1,43 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useCategories } from "../../hooks/use-categories";
+import type { CategoryWithStats } from "../../hooks/use-categories";
 import { useNavigate } from "react-router-dom";
 import LoadingSpinner from "../../components/loading-spinner/loading-spinner";
 import styles from "./home-page.module.scss";
 import { PATHS } from "../../constants/paths";
 import Modal from "../../components/modal/modal";
+
+const CategoryStatsCard: React.FC<{ category: CategoryWithStats, openModal: (id: number) => void }> = ({ category, openModal }) => {
+  const { total, approved, pending, rejected } = category.stats;
+  
+  return (
+    <div className={styles["category-card"]}>
+      <h3 className={styles["category-name"]}>{category.name}</h3>
+
+      <div className={styles["stats-display"]}>
+        <p>
+          Total Questions: <span className={styles.total}>{total}</span>
+        </p>
+        <p>
+          ✅ Approved: <span className={styles.approved}>{approved}</span>
+        </p>
+        <p>
+          ⏳ Pending: <span className={styles.pending}>{pending}</span>
+        </p>
+        <p>
+          ❌ Rejected: <span className={styles.rejected}>{rejected}</span>
+        </p>
+      </div>
+      
+      <button 
+        className={styles["start-quiz-button"]}
+        onClick={() => openModal(category.id)}
+      >
+        Start Quiz
+      </button>
+    </div>
+  );
+};
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -19,8 +52,7 @@ const HomePage = () => {
 
   useEffect(() => {
     const pageTitle = "Quiz App - Home";
-    const description =
-      "Welcome to the React Quiz App! Choose a category and configure your quiz.";
+    const description = "Welcome to the React Quiz App! Choose a category and configure your quiz.";
     const url = "https://quiz-app-react-blush.vercel.app/";
 
     document.title = pageTitle;
@@ -43,13 +75,11 @@ const HomePage = () => {
 
     ensureMeta("description", description);
     ensureMeta("canonical", url);
-
     ensureMeta("og:title", pageTitle, true);
     ensureMeta("og:description", description, true);
     ensureMeta("og:url", url, true);
     ensureMeta("og:type", "website", true);
     ensureMeta("og:image", `${url}og-image.png`, true);
-
     ensureMeta("twitter:card", "summary_large_image");
     ensureMeta("twitter:title", pageTitle);
     ensureMeta("twitter:description", description);
@@ -89,20 +119,20 @@ const HomePage = () => {
     return <div className={styles.error}>{error.message}</div>;
   }
 
+  const categoriesWithStats = categories as CategoryWithStats[];
+
   return (
     <div className={styles["home-container"]}>
       <h1 className={styles.title}>Quiz Application</h1>
       <h2 className={styles.subtitle}>Select a category to get started</h2>
 
       <div className={styles["category-grid"]}>
-        {categories?.map((category) => (
-          <button
+        {categoriesWithStats?.map((category) => (
+          <CategoryStatsCard 
             key={category.id}
-            className={styles["category-card"]}
-            onClick={() => openConfigModal(category.id)}
-          >
-            {category.name}
-          </button>
+            category={category}
+            openModal={openConfigModal}
+          />
         ))}
       </div>
 

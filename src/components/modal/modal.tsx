@@ -17,7 +17,7 @@ const Modal: React.FC<ModalProps> = ({ title, children, onClose, show }) => {
     <div className={styles["modal-backdrop"]} onClick={onClose}>
       <div
         className={styles["modal-content"]}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()} 
       >
         <div className={styles["modal-header"]}>
           <h3 className={styles["modal-title"]}>{title}</h3>
@@ -26,11 +26,6 @@ const Modal: React.FC<ModalProps> = ({ title, children, onClose, show }) => {
           </button>
         </div>
         <div className={styles["modal-body"]}>{children}</div>
-        <div className={styles["modal-footer"]}>
-          <button onClick={onClose} className={styles["ok-button"]}>
-            OK
-          </button>
-        </div>
       </div>
     </div>
   );

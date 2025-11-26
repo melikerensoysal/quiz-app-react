@@ -49,7 +49,9 @@ const QuizPage = () => {
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
   const [changeCounts, setChangeCounts] = useState<Record<number, number>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [timeLeft, setTimeLeft] = useState<number>(0);
+
+  const [timeLeft, setTimeLeft] = useState<number>(amount * 60);
+  
   const [persistedTimeLeft, setPersistedTimeLeft] = useState<number | null>(null);
   const [isQuizInitialized, setIsQuizInitialized] = useState(false);
   const [timerActive, setTimerActive] = useState(false);
@@ -60,8 +62,8 @@ const QuizPage = () => {
   const [testId, setTestId] = useState<string>("");
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isTimeSyncedRef = useRef(false);
 
-  // API CALL
   const {
     data: questionsFromApi,
     isLoading,
@@ -72,7 +74,17 @@ const QuizPage = () => {
   const initialQuestions = retryQuestions ?? questionsFromApi ?? null;
   const questions = localQuestions || initialQuestions || null;
 
-  // Persistence throttling
+  useEffect(() => {
+    if (questions && questions.length > 0) {
+        const requiredTime = questions.length * 60;
+        
+        if (Math.abs(timeLeft - requiredTime) > 5 && !isTimeSyncedRef.current) {
+            setTimeLeft(requiredTime);
+            isTimeSyncedRef.current = true;
+        }
+    }
+  }, [questions, timeLeft]);
+
   useEffect(() => {
     if (!isQuizInitialized) return;
 
@@ -95,7 +107,6 @@ const QuizPage = () => {
     });
   }, [timeLeft, isQuizInitialized, timerActive]);
 
-  // Persistence restore
   useQuizPersistence({
     categoryId: numericCategoryId,
     questionsFromApi: initialQuestions,
@@ -119,31 +130,32 @@ const QuizPage = () => {
   });
 
   useEffect(() => {
-  if (!timerActive) {
-    return; // ✔ cleanup function dönmüyoruz ama void return ediyor, sıkıntı yok
-  }
+    if (!timerActive) {
+      return;
+    }
 
-  if (timerRef.current) {
-    clearInterval(timerRef.current);
-  }
-
-  timerRef.current = setInterval(() => {
-    setTimeLeft((prev) => {
-      if (prev <= 1) {
-        clearInterval(timerRef.current!);
-        setShowTimeUpModal(true);
-        return 0;
-      }
-      return prev - 1;
-    });
-  }, 1000);
-
-  return () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
-  };
-}, [timerActive]);
+
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          setShowTimeUpModal(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [timerActive]);
+
   useEffect(() => {
     if (timeLeft === 60) setShowWarningModal(true);
   }, [timeLeft]);
@@ -157,12 +169,13 @@ const QuizPage = () => {
     setUserAnswers({});
     setChangeCounts({});
     setCurrentQuestionIndex(0);
-    setTimeLeft(0);
+    setTimeLeft(amount * 60);
+    isTimeSyncedRef.current = false;
     setPersistedTimeLeft(null);
     setTestId("");
     quizStorage.clearState();
     quizStorage.clearAnalysis();
-  }, []);
+  }, [amount]);
 
   const handleFinishTest = useCallback(() => {
     if (!questions) return;
@@ -235,7 +248,6 @@ const QuizPage = () => {
     }
   };
 
-  // ERROR STATE
   if (isError)
     return (
       <div className={styles.error}>
@@ -243,7 +255,6 @@ const QuizPage = () => {
       </div>
     );
 
-  // Loading
   if (!isQuizInitialized || !questions) {
     return (
       <LoadingSpinner
@@ -252,8 +263,8 @@ const QuizPage = () => {
     );
   }
 
-  // ❗ BOOLEAN DESTEKLEMEYEN KATEGORİ (429 fix)
-  if (questions.length === 0)
+
+  if (questions.length === 0) {
     return (
       <div className={styles.error}>
         This category does not support the selected question type.
@@ -261,6 +272,7 @@ const QuizPage = () => {
         Please choose another type or category.
       </div>
     );
+  }
 
   const currentQuestion = questions[currentQuestionIndex];
   const currentAnswers = shuffledAnswers[currentQuestionIndex] || [];
