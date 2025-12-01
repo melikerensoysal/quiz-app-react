@@ -9,6 +9,7 @@ import type { Question } from "../../types";
 import Modal from "../../components/modal/modal";
 import { useQuizPersistence } from "../../hooks/use-quiz-persistence";
 import { quizStorage } from "../../services/quiz-storage";
+import ErrorCover from "../../components/error-cover/error-cover";
 
 const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
@@ -248,11 +249,14 @@ const QuizPage = () => {
     }
   };
 
+
   if (isError)
     return (
-      <div className={styles.error}>
-        Error: {error?.message || "Could not load questions."}
-      </div>
+      <ErrorCover 
+        title="Oops!"
+        message={error?.message || "Sorular yüklenirken bir sorun oluştu."}
+        icon="🔌"
+      />
     );
 
   if (!isQuizInitialized || !questions) {
@@ -263,16 +267,17 @@ const QuizPage = () => {
     );
   }
 
-
   if (questions.length === 0) {
     return (
-      <div className={styles.error}>
-        This category does not support the selected question type.
-        <br />
-        Please choose another type or category.
-      </div>
+      <ErrorCover 
+        title="Soru Bulunamadı"
+        message="Seçtiğiniz kriterlere (Kategori/Zorluk) uygun yeterli soru veritabanında bulunmuyor. Lütfen daha az soru sayısı veya farklı bir kategori seçin."
+        icon="🧩"
+        buttonText="Ayarlara Dön"
+      />
     );
   }
+
 
   const currentQuestion = questions[currentQuestionIndex];
   const currentAnswers = shuffledAnswers[currentQuestionIndex] || [];

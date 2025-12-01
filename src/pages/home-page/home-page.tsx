@@ -53,7 +53,6 @@ const HomePage = () => {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
-  // Kategori detayları için yeni state'ler
   const [categoryCounts, setCategoryCounts] = useState<CategoryQuestionCount | null>(null);
   const [isLoadingCounts, setIsLoadingCounts] = useState(false);
 
