@@ -7,6 +7,13 @@ import styles from "./home-page.module.scss";
 import { PATHS } from "../../constants/paths";
 import Modal from "../../components/modal/modal";
 
+interface CategoryQuestionCount {
+  total_question_count: number;
+  total_easy_question_count: number;
+  total_medium_question_count: number;
+  total_hard_question_count: number;
+}
+
 const CategoryStatsCard: React.FC<{ category: CategoryWithStats, openModal: (id: number) => void }> = ({ category, openModal }) => {
   const { total, approved, pending, rejected } = category.stats;
   
@@ -45,6 +52,10 @@ const HomePage = () => {
 
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+
+  // Kategori detayları için yeni state'ler
+  const [categoryCounts, setCategoryCounts] = useState<CategoryQuestionCount | null>(null);
+  const [isLoadingCounts, setIsLoadingCounts] = useState(false);
 
   const [difficulty, setDifficulty] = useState("easy");
   const [type, setType] = useState("multiple");
@@ -86,9 +97,24 @@ const HomePage = () => {
     ensureMeta("twitter:image", `${url}og-image.png`);
   }, []);
 
-  const openConfigModal = (categoryId: number) => {
+  const openConfigModal = async (categoryId: number) => {
     setSelectedCategory(categoryId);
     setShowConfigModal(true);
+    setCategoryCounts(null);
+    setIsLoadingCounts(true);
+
+    try {
+      const response = await fetch(`https://opentdb.com/api_count.php?category=${categoryId}`);
+      const data = await response.json();
+      setCategoryCounts(data.category_question_count);
+      
+      setDifficulty("easy");
+      setAmount(10);
+    } catch (error) {
+      console.error("Failed to fetch category counts", error);
+    } finally {
+      setIsLoadingCounts(false);
+    }
   };
 
   const startQuiz = () => {
@@ -121,6 +147,20 @@ const HomePage = () => {
 
   const categoriesWithStats = categories as CategoryWithStats[];
 
+  const isOptionDisabled = (count: number) => {
+    return count < amount;
+  };
+
+  const isCurrentSelectionInvalid = () => {
+    if (!categoryCounts) return false;
+    let limit = 0;
+    if (difficulty === 'easy') limit = categoryCounts.total_easy_question_count;
+    if (difficulty === 'medium') limit = categoryCounts.total_medium_question_count;
+    if (difficulty === 'hard') limit = categoryCounts.total_hard_question_count;
+    
+    return limit < amount;
+  };
+
   return (
     <div className={styles["home-container"]}>
       <h1 className={styles.title}>Quiz Application</h1>
@@ -142,43 +182,77 @@ const HomePage = () => {
         title="Quiz Settings"
       >
         <div className={styles["config-modal"]}>
-          <div className={styles["config-field"]}>
-            <label>Difficulty</label>
-            <select
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-            >
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
-            </select>
-          </div>
+          {isLoadingCounts ? (
+             <div style={{ textAlign: 'center', padding: '20px' }}>Checking questions...</div>
+          ) : (
+            <>
+              <div className={styles["config-field"]}>
+                <label>Number of Questions</label>
+                <select
+                  value={amount}
+                  onChange={(e) => setAmount(Number(e.target.value))}
+                >
+                  <option value={5}>5 Questions</option>
+                  <option value={10}>10 Questions</option>
+                  <option value={15}>15 Questions</option>
+                  <option value={20}>20 Questions</option>
+                  <option value={25}>25 Questions</option>
+                </select>
+              </div>
 
-          <div className={styles["config-field"]}>
-            <label>Type</label>
-            <select value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="multiple">Multiple Choice</option>
-              <option value="boolean">True / False</option>
-            </select>
-          </div>
+              <div className={styles["config-field"]}>
+                <label>Difficulty</label>
+                <select
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                  style={{ 
+                    borderColor: isCurrentSelectionInvalid() ? 'red' : undefined 
+                  }}
+                >
+                  <option 
+                    value="easy" 
+                    disabled={categoryCounts ? isOptionDisabled(categoryCounts.total_easy_question_count) : false}
+                  >
+                    Easy {categoryCounts ? `(${categoryCounts.total_easy_question_count})` : ''}
+                  </option>
+                  <option 
+                    value="medium"
+                    disabled={categoryCounts ? isOptionDisabled(categoryCounts.total_medium_question_count) : false}
+                  >
+                    Medium {categoryCounts ? `(${categoryCounts.total_medium_question_count})` : ''}
+                  </option>
+                  <option 
+                    value="hard"
+                    disabled={categoryCounts ? isOptionDisabled(categoryCounts.total_hard_question_count) : false}
+                  >
+                    Hard {categoryCounts ? `(${categoryCounts.total_hard_question_count})` : ''}
+                  </option>
+                </select>
+                {isCurrentSelectionInvalid() && (
+                  <small style={{ color: 'red', display: 'block', marginTop: '5px' }}>
+                    Not enough questions in this difficulty for the selected amount.
+                  </small>
+                )}
+              </div>
 
-          <div className={styles["config-field"]}>
-            <label>Number of Questions</label>
-            <select
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-            >
-              <option value={5}>5 Questions</option>
-              <option value={10}>10 Questions</option>
-              <option value={15}>15 Questions</option>
-              <option value={20}>20 Questions</option>
-              <option value={25}>25 Questions</option>
-            </select>
-          </div>
+              <div className={styles["config-field"]}>
+                <label>Type</label>
+                <select value={type} onChange={(e) => setType(e.target.value)}>
+                  <option value="multiple">Multiple Choice</option>
+                  <option value="boolean">True / False</option>
+                </select>
+              </div>
 
-          <button className={styles["start-button"]} onClick={startQuiz}>
-            Start Quiz
-          </button>
+              <button 
+                className={styles["start-button"]} 
+                onClick={startQuiz}
+                disabled={isCurrentSelectionInvalid()}
+                style={{ opacity: isCurrentSelectionInvalid() ? 0.5 : 1 }}
+              >
+                Start Quiz
+              </button>
+            </>
+          )}
         </div>
       </Modal>
     </div>
